@@ -15,7 +15,7 @@ use Phattarachai\OpsLaravel\Http\Controllers\SettingsController;
 use Phattarachai\OpsLaravel\Http\Controllers\SystemController;
 
 Route::get('/', [OverviewController::class, 'index'])->name('overview');
-Route::post('refresh', RefreshController::class)->name('refresh');
+Route::post('cache/refresh', RefreshController::class)->name('refresh');
 
 Route::get('requests', [RequestsController::class, 'index'])->name('requests');
 Route::get('requests/{token}', [RequestsController::class, 'show'])->name('requests.show');
