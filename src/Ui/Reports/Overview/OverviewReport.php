@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel\Ui\Reports\Overview;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Phattarachai\OpsCore\Alerts\IncidentStatus;
 use Phattarachai\OpsCore\Alerts\Severity;
 use Phattarachai\OpsCore\Health\HealthClassifier;
+use Phattarachai\OpsLaravel\Enums\JobRunStatus;
 use Phattarachai\OpsLaravel\Enums\OutgoingOutcome;
 use Phattarachai\OpsLaravel\Enums\ScheduleRunStatus;
 use Phattarachai\OpsLaravel\Models\Incident;
@@ -22,6 +24,7 @@ use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\Signals\BuiltInSignals;
 use Phattarachai\OpsLaravel\Ui\Format;
 use Phattarachai\OpsLaravel\Ui\OpsCache;
+use Phattarachai\OpsLaravel\Ui\Reports\Jobs\RunSql;
 use Phattarachai\OpsLaravel\Ui\TimeFilter;
 use Phattarachai\OpsLaravel\Ui\TimeRange;
 use Throwable;
@@ -176,33 +179,34 @@ final readonly class OverviewReport
     /** @return array<string, mixed> */
     private function jobs(): array
     {
-        $runs = JobRun::query()->where('started_at', '>=', $this->range->start)->where('started_at', '<', $this->range->end)->get(['job_class', 'status', 'started_at']);
-        $failures = $runs->filter(fn (JobRun $run): bool => $run->status->isFailure());
+        $failure = RunSql::countWhere("status in ('".JobRunStatus::Failed->value."', '".JobRunStatus::TimedOut->value."')");
+        $classes = $this->windowed(JobRun::query())
+            ->selectRaw("job_class, count(*) as runs, {$failure} as failed")
+            ->groupBy('job_class')
+            ->toBase()
+            ->get()
+            ->map(fn (object $row): array => ['name' => (string) $row->job_class, 'runs' => (int) $row->runs, 'failed' => (int) $row->failed]);
+        $runs = (int) $classes->sum('runs');
+        $failed = (int) $classes->sum('failed');
         $classifier = new HealthClassifier;
-        $failingClasses = $runs->groupBy('job_class')
-            ->map(fn (Collection $class, string $name): array => ['name' => $name, 'runs' => $class->count(), 'failed' => $class->filter(fn (JobRun $run): bool => $run->status->isFailure())->count()])
-            ->filter(fn (array $class): bool => $class['failed'] > 0)
-            ->sortByDesc('failed');
+        $failingClasses = $classes->filter(fn (array $class): bool => $class['failed'] > 0)->sortByDesc('failed');
 
         return [
             'key' => 'jobs',
             'title' => 'Jobs',
             'url' => route('ops.jobs', $this->filter->params()),
             'health' => match (true) {
-                $runs->isEmpty() => $this->health('gray', 'No data'),
+                $runs === 0 => $this->health('gray', 'No data'),
                 $failingClasses->contains(fn (array $class): bool => $classifier->forFailureRate($class['runs'], $class['failed'])->value === 'incident') => $this->health('danger', 'Failing'),
                 $failingClasses->isNotEmpty() => $this->health('warning', 'Degrading'),
                 default => $this->health('success', 'Healthy'),
             },
             'stats' => [
-                ['label' => 'Runs', 'value' => Format::count($runs->count())],
-                ['label' => 'Failed', 'value' => number_format($failures->count()), 'tone' => $failures->isNotEmpty() ? 'fail' : null],
+                ['label' => 'Runs', 'value' => Format::count($runs)],
+                ['label' => 'Failed', 'value' => number_format($failed), 'tone' => $failed > 0 ? 'fail' : null],
                 ['label' => 'Classes failing', 'value' => number_format($failingClasses->count())],
             ],
-            'chart' => ['kind' => 'runs', 'span' => $this->range->label, 'series' => $this->bars($runs, fn (Collection $bar): array => [
-                'ok' => $bar->reject(fn (JobRun $run): bool => $run->status->isFailure())->count(),
-                'failed' => $bar->filter(fn (JobRun $run): bool => $run->status->isFailure())->count(),
-            ], 'started_at')],
+            'chart' => ['kind' => 'runs', 'span' => $this->range->label, 'series' => $this->runBars(JobRun::query(), $failure)],
             'attention' => $failingClasses->take(10)->map(fn (array $class): array => $this->row('Jobs', class_basename($class['name']), $classifier->forFailureRate($class['runs'], $class['failed'])->value === 'incident' ? 'danger' : 'warning', 'Failed', "{$class['failed']} / {$class['runs']}", route('ops.jobs.show', ['token' => Format::base64url($class['name'])] + $this->filter->params())))->values()->all(),
         ];
     }
@@ -210,30 +214,72 @@ final readonly class OverviewReport
     /** @return array<string, mixed> */
     private function schedules(): array
     {
-        $runs = ScheduleRun::query()->where('started_at', '>=', $this->range->start)->where('started_at', '<', $this->range->end)->where('status', '!=', ScheduleRunStatus::Skipped)->get(['task', 'status', 'started_at']);
-        $failed = $runs->where('status', ScheduleRunStatus::Failed);
-        $failingTasks = $failed->groupBy('task')->map(fn (Collection $task, string $name): array => ['name' => $name, 'failed' => $task->count()]);
+        $failure = RunSql::countWhere("status = '".ScheduleRunStatus::Failed->value."'");
+        $tasks = $this->windowed(ScheduleRun::query()->where('status', '!=', ScheduleRunStatus::Skipped))
+            ->selectRaw("task, count(*) as runs, {$failure} as failed")
+            ->groupBy('task')
+            ->toBase()
+            ->get()
+            ->map(fn (object $row): array => ['name' => (string) $row->task, 'runs' => (int) $row->runs, 'failed' => (int) $row->failed]);
+        $runs = (int) $tasks->sum('runs');
+        $failed = (int) $tasks->sum('failed');
+        $failingTasks = $tasks->filter(fn (array $task): bool => $task['failed'] > 0);
 
         return [
             'key' => 'schedules',
             'title' => 'Schedules',
             'url' => route('ops.schedules', $this->filter->params()),
             'health' => match (true) {
-                $runs->isEmpty() => $this->health('gray', 'No data'),
+                $runs === 0 => $this->health('gray', 'No data'),
                 $failingTasks->isNotEmpty() => $this->health('danger', 'Failing'),
                 default => $this->health('success', 'Healthy'),
             },
             'stats' => [
-                ['label' => 'Runs', 'value' => Format::count($runs->count())],
-                ['label' => 'Failed', 'value' => number_format($failed->count()), 'tone' => $failed->isNotEmpty() ? 'fail' : null],
+                ['label' => 'Runs', 'value' => Format::count($runs)],
+                ['label' => 'Failed', 'value' => number_format($failed), 'tone' => $failed > 0 ? 'fail' : null],
                 ['label' => 'Tasks failing', 'value' => number_format($failingTasks->count())],
             ],
-            'chart' => ['kind' => 'runs', 'span' => $this->range->label, 'series' => $this->bars($runs, fn (Collection $bar): array => [
-                'ok' => $bar->where('status', '!=', ScheduleRunStatus::Failed)->count(),
-                'failed' => $bar->where('status', ScheduleRunStatus::Failed)->count(),
-            ], 'started_at')],
+            'chart' => ['kind' => 'runs', 'span' => $this->range->label, 'series' => $this->runBars(ScheduleRun::query()->where('status', '!=', ScheduleRunStatus::Skipped), $failure)],
             'attention' => $failingTasks->map(fn (array $task): array => $this->row('Schedules', $task['name'], 'danger', 'Failed', (string) $task['failed'], route('ops.schedules.show', ['token' => Format::base64url($task['name'])] + $this->filter->params())))->values()->all(),
         ];
+    }
+
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function windowed(Builder $query): Builder
+    {
+        return $query->where('started_at', '>=', $this->range->start)->where('started_at', '<', $this->range->end);
+    }
+
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return list<array{ok: int, failed: int}>
+     */
+    private function runBars(Builder $query, string $failure): array
+    {
+        $slot = RunSql::make()->slot('started_at', $this->range->firstBarStart(), $this->range->step * 60);
+        $rows = $this->windowed($query)
+            ->selectRaw("{$slot} as slot, count(*) as runs, {$failure} as failed")
+            ->groupByRaw($slot)
+            ->toBase()
+            ->get()
+            ->keyBy(fn (object $row): int => (int) $row->slot);
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        return array_map(function (int $index) use ($rows): array {
+            $row = $rows->get($index);
+
+            return ['ok' => (int) ($row->runs ?? 0) - (int) ($row->failed ?? 0), 'failed' => (int) ($row->failed ?? 0)];
+        }, range(0, $this->range->bars - 1));
     }
 
     /** @return array<string, mixed> */
