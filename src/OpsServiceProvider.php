@@ -33,6 +33,7 @@ use Phattarachai\OpsLaravel\Buffer\ArrayMinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\MinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\RedisMinuteBuffer;
 use Phattarachai\OpsLaravel\Console\AlertsCommand;
+use Phattarachai\OpsLaravel\Console\InstallCommand;
 use Phattarachai\OpsLaravel\Console\PruneCommand;
 use Phattarachai\OpsLaravel\Console\RollupCommand;
 use Phattarachai\OpsLaravel\Http\Middleware\AuthorizeOps;
@@ -117,7 +118,7 @@ final class OpsServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->commands([RollupCommand::class, AlertsCommand::class, PruneCommand::class]);
+        $this->commands([InstallCommand::class, RollupCommand::class, AlertsCommand::class, PruneCommand::class]);
     }
 
     private function registerMiddleware(): void
