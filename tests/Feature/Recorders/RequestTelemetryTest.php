@@ -145,3 +145,14 @@ it('never breaks the response when the buffer fails', function (): void {
 
     $this->getJson('api/things/1')->assertOk();
 });
+
+it('still records security signals while request rollups are off', function (): void {
+    app(OpsSettings::class)->set('recorders.requests.enabled', false);
+    Route::get('api/forbidden', fn () => abort(403));
+
+    $this->getJson('api/forbidden', ['REMOTE_ADDR' => '198.51.100.4']);
+    rollupAt('2026-10-08 10:16:05');
+
+    expect(RequestRollup::query()->count())->toBe(0)
+        ->and(SignalRollup::query()->where('signal', 'http.403')->pluck('key')->all())->toBe(['ip:198.51.100.4']);
+});

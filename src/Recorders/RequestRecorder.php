@@ -32,13 +32,27 @@ class RequestRecorder
     public function record(Request $request, Response $response): void
     {
         rescue(function () use ($request, $response): void {
-            if (! $this->shouldRecord($request)) {
+            if (! Ops::recording() || $this->isIgnored($request)) {
+                return;
+            }
+
+            $rollup = $this->settings->bool('recorders.requests.enabled') && $request->is(...$this->settings->list('recorders.requests.paths'));
+            $security = $this->isSecurityStatus($response->getStatusCode());
+
+            if (! $rollup && ! $security) {
                 return;
             }
 
             $user = $this->resolvedUser();
+            $sample = RequestSample::capture($request, $response, $user === null ? null : (string) $user->getAuthIdentifier(), Ops::segmentFor($user));
 
-            $this->write(RequestSample::capture($request, $response, $user === null ? null : (string) $user->getAuthIdentifier(), Ops::segmentFor($user)));
+            if ($rollup) {
+                $this->write($sample);
+            }
+
+            if ($security) {
+                $this->recordSecuritySignal($sample);
+            }
         }, report: false);
     }
 
@@ -53,25 +67,21 @@ class RequestRecorder
             MinuteData::field($dims, 'b'.LatencyHistogram::binMs($sample->milliseconds)) => 1,
         ], [$dims => $sample->milliseconds]);
 
-        if ($sample->userId !== null) {
-            $userDims = MinuteData::dims([$sample->route, $sample->userId, $sample->segment]);
-
-            $this->buffer->add(self::USER_STREAM, $now, [
-                MinuteData::field($userDims, 'c') => 1,
-                MinuteData::field($userDims, 'ms') => $sample->milliseconds,
-                MinuteData::field($userDims, RequestSample::statusClass($sample->status)) => 1,
-            ]);
+        if ($sample->userId === null) {
+            return;
         }
 
-        $this->recordSecuritySignal($sample);
+        $userDims = MinuteData::dims([$sample->route, $sample->userId, $sample->segment]);
+
+        $this->buffer->add(self::USER_STREAM, $now, [
+            MinuteData::field($userDims, 'c') => 1,
+            MinuteData::field($userDims, 'ms') => $sample->milliseconds,
+            MinuteData::field($userDims, RequestSample::statusClass($sample->status)) => 1,
+        ]);
     }
 
     protected function recordSecuritySignal(RequestSample $sample): void
     {
-        if (! $this->settings->bool('recorders.security.enabled') || ! in_array($sample->status, array_map(intval(...), (array) $this->settings->get('recorders.security.statuses', [])), true)) {
-            return;
-        }
-
         $signal = "http.{$sample->status}";
         $meta = ['route' => $sample->route];
 
@@ -84,12 +94,15 @@ class RequestRecorder
         }
     }
 
-    protected function shouldRecord(Request $request): bool
+    protected function isSecurityStatus(int $status): bool
     {
-        return Ops::recording()
-            && $this->settings->bool('recorders.requests.enabled')
-            && $request->is(...$this->settings->list('recorders.requests.paths'))
-            && ! $request->is(...[...$this->settings->list('recorders.requests.ignore'), trim((string) config('ops.path'), '/').'*']);
+        return $this->settings->bool('recorders.security.enabled')
+            && in_array($status, array_map(intval(...), (array) $this->settings->get('recorders.security.statuses', [])), true);
+    }
+
+    protected function isIgnored(Request $request): bool
+    {
+        return $request->is(...[...$this->settings->list('recorders.requests.ignore'), trim((string) config('ops.path'), '/').'*']);
     }
 
     protected function resolvedUser(): ?Authenticatable
