@@ -48,7 +48,8 @@ final class DeployRecorder
 
     private static function gitHead(): ?string
     {
-        $head = @file_get_contents(base_path('.git/HEAD'));
+        $gitDir = self::gitDir();
+        $head = $gitDir === null ? false : @file_get_contents("{$gitDir}/HEAD");
 
         if (! is_string($head)) {
             return null;
@@ -60,8 +61,30 @@ final class DeployRecorder
             return mb_substr($head, 0, 12);
         }
 
-        $ref = @file_get_contents(base_path('.git/'.substr($head, 5)));
+        $common = @file_get_contents("{$gitDir}/commondir");
+        $roots = array_filter([$gitDir, is_string($common) ? $gitDir.'/'.trim($common) : null]);
 
-        return is_string($ref) ? mb_substr(trim($ref), 0, 12) : null;
+        foreach ($roots as $root) {
+            $ref = @file_get_contents($root.'/'.substr($head, 5));
+
+            if (is_string($ref)) {
+                return mb_substr(trim($ref), 0, 12);
+            }
+        }
+
+        return null;
+    }
+
+    private static function gitDir(): ?string
+    {
+        $path = base_path('.git');
+
+        if (is_dir($path)) {
+            return $path;
+        }
+
+        $pointer = @file_get_contents($path);
+
+        return is_string($pointer) && str_starts_with($pointer, 'gitdir: ') ? trim(substr($pointer, 8)) : null;
     }
 }
