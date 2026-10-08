@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Cache;
 use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\Rollup\StreamRollup;
 use Phattarachai\OpsLaravel\Rollup\StreamRollups;
+use Phattarachai\OpsLaravel\Samplers\DeployRecorder;
+use Phattarachai\OpsLaravel\Samplers\QueueSampler;
+use Phattarachai\OpsLaravel\Samplers\SystemSampler;
 
 /**
  * Rolls every closed minute after the high-water mark (at most 170 minutes back, inside the
@@ -25,7 +28,7 @@ final class RollupCommand extends Command
 
     protected $description = 'Roll closed minutes of Ops telemetry from the buffer into the ops_* tables';
 
-    public function handle(StreamRollups $rollups): int
+    public function handle(StreamRollups $rollups, QueueSampler $queues, SystemSampler $system, DeployRecorder $deploys): int
     {
         if (! Ops::recording()) {
             return self::SUCCESS;
@@ -42,6 +45,10 @@ final class RollupCommand extends Command
         }
 
         Cache::forever(self::HIGH_WATER_KEY, $to->subMinute()->toDateTimeString());
+
+        rescue(fn () => $queues->sample($to));
+        rescue(fn () => $system->sample($to));
+        rescue(fn () => $deploys->detect());
 
         $this->components->info("Rolled {$rolled} stream minutes, folded {$hours} hour rows.");
 

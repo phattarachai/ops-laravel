@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel\Console;
 
 use Illuminate\Console\Command;
+use Phattarachai\OpsLaravel\Models\CacheRollup;
 use Phattarachai\OpsLaravel\Models\JobRun;
+use Phattarachai\OpsLaravel\Models\NotificationSent;
 use Phattarachai\OpsLaravel\Models\OutgoingRollup;
+use Phattarachai\OpsLaravel\Models\QueueSample;
 use Phattarachai\OpsLaravel\Models\RequestRollup;
 use Phattarachai\OpsLaravel\Models\RollupLedger;
 use Phattarachai\OpsLaravel\Models\ScheduleRun;
 use Phattarachai\OpsLaravel\Models\SignalRollup;
 use Phattarachai\OpsLaravel\Models\SignalValue;
+use Phattarachai\OpsLaravel\Models\SlowQuery;
+use Phattarachai\OpsLaravel\Models\SystemSample;
 use Phattarachai\OpsLaravel\Models\UserRequestRollup;
 
 final class PruneCommand extends Command
@@ -26,6 +31,11 @@ final class PruneCommand extends Command
         SignalRollup::class,
         SignalValue::class,
         RollupLedger::class,
+        SlowQuery::class,
+        CacheRollup::class,
+        QueueSample::class,
+        SystemSample::class,
+        NotificationSent::class,
     ];
 
     protected $signature = 'ops:prune';

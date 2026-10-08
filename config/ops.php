@@ -84,7 +84,36 @@ return [
             'enabled' => true,
             'statuses' => [401, 403, 404, 419, 429],
         ],
+        'queries' => [
+            'enabled' => true,
+            'threshold_ms' => 500,
+        ],
+        'cache' => [
+            'enabled' => true,
+            'sample_rate' => 0.1,
+        ],
+        'queues' => [
+            'enabled' => true,
+            'queues' => [],
+        ],
+        'system' => [
+            'enabled' => true,
+        ],
     ],
+
+    /*
+    | Server probe thresholds in percent (system.memory, system.disk, system.load = load / cpus).
+    */
+    'thresholds' => [
+        'system.memory' => ['warning' => 85, 'critical' => 95],
+        'system.disk' => ['warning' => 85, 'critical' => 95],
+        'system.load' => ['warning' => 90, 'critical' => 150],
+    ],
+
+    /*
+    | Release shown on deploy markers. Null detects a REVISION file or the git HEAD.
+    */
+    'release' => env('OPS_RELEASE'),
 
     /*
     | Alert channels. Mail is on by default and sends through one of the host's mailers;

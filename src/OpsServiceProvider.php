@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel;
 
 use Illuminate\Auth\Events\Failed;
+use Illuminate\Cache\Events\CacheHit;
+use Illuminate\Cache\Events\CacheMissed;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
@@ -12,6 +14,7 @@ use Illuminate\Console\Events\ScheduledTaskSkipped;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
@@ -33,14 +36,17 @@ use Phattarachai\OpsLaravel\Buffer\ArrayMinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\MinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\RedisMinuteBuffer;
 use Phattarachai\OpsLaravel\Console\AlertsCommand;
+use Phattarachai\OpsLaravel\Console\DeployCommand;
 use Phattarachai\OpsLaravel\Console\InstallCommand;
 use Phattarachai\OpsLaravel\Console\PruneCommand;
 use Phattarachai\OpsLaravel\Console\RollupCommand;
 use Phattarachai\OpsLaravel\Http\Middleware\AuthorizeOps;
 use Phattarachai\OpsLaravel\Http\Middleware\RecordRequests;
+use Phattarachai\OpsLaravel\Recorders\CacheRecorder;
 use Phattarachai\OpsLaravel\Recorders\FailedLoginRecorder;
 use Phattarachai\OpsLaravel\Recorders\JobRecorder;
 use Phattarachai\OpsLaravel\Recorders\OutgoingRecorder;
+use Phattarachai\OpsLaravel\Recorders\QueryRecorder;
 use Phattarachai\OpsLaravel\Recorders\RequestRecorder;
 use Phattarachai\OpsLaravel\Recorders\ScheduleRecorder;
 use Phattarachai\OpsLaravel\Recorders\SignalRecorder;
@@ -60,6 +66,8 @@ final class OpsServiceProvider extends ServiceProvider
         $this->app->singleton(JobRecorder::class);
         $this->app->singleton(ScheduleRecorder::class);
         $this->app->singleton(SignalRecorder::class);
+        $this->app->singleton(QueryRecorder::class);
+        $this->app->singleton(CacheRecorder::class);
         $this->app->singleton(ChannelRegistry::class);
         $this->app->bind(AlertEngine::class, fn (): AlertEngine => new AlertEngine(new RuleEvaluator(new DatabaseSignalReader), new EloquentIncidentStore));
     }
@@ -118,7 +126,7 @@ final class OpsServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->commands([InstallCommand::class, RollupCommand::class, AlertsCommand::class, PruneCommand::class]);
+        $this->commands([InstallCommand::class, RollupCommand::class, AlertsCommand::class, PruneCommand::class, DeployCommand::class]);
     }
 
     private function registerMiddleware(): void
@@ -148,6 +156,10 @@ final class OpsServiceProvider extends ServiceProvider
         Event::listen(fn (ConnectionFailed $event) => $this->app->make(OutgoingRecorder::class)->failed($event));
 
         Event::listen(fn (Failed $event) => $this->app->make(FailedLoginRecorder::class)->handle($event));
+
+        Event::listen(fn (QueryExecuted $event) => $this->app->make(QueryRecorder::class)->record($event));
+        Event::listen(fn (CacheHit $event) => $this->app->make(CacheRecorder::class)->record($event));
+        Event::listen(fn (CacheMissed $event) => $this->app->make(CacheRecorder::class)->record($event));
     }
 
     private function registerSchedule(): void

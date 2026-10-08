@@ -84,8 +84,9 @@ class OpsSettings
     private function stored(): array
     {
         if ($this->stored === null || time() - $this->loadedAt >= self::LOCAL_TTL) {
-            $this->stored = $this->load();
             $this->loadedAt = time();
+            $this->stored ??= [];
+            $this->stored = $this->load();
         }
 
         return $this->stored;
