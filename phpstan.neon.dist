@@ -9,3 +9,5 @@ parameters:
         - src
 
     checkModelProperties: true
+
+    treatPhpDocTypesAsCertain: false

@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
-use Phattarachai\OpsLaravel\Facades\Ops as OpsFacade;
-use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\OpsServiceProvider;
 
 it('boots the service provider', function () {
@@ -24,6 +23,8 @@ it('publishes the config under the ops-config tag', function () {
         ->and(array_values($published)[0])->toBe(config_path('ops.php'));
 });
 
-it('resolves the Ops facade to the registration surface', function () {
-    expect(OpsFacade::getFacadeRoot())->toBeInstanceOf(Ops::class);
+it('registers the rollup and prune commands on the scheduler', function () {
+    $commands = collect(app(Schedule::class)->events())->map(fn ($event) => $event->command)->implode(' ');
+
+    expect($commands)->toContain('ops:rollup')->toContain('ops:prune');
 });

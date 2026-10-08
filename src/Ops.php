@@ -5,32 +5,40 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel;
 
 use Closure;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Phattarachai\OpsCore\Alerts\ProbeLevel;
+use Phattarachai\OpsLaravel\Models\ProbeState;
+use Phattarachai\OpsLaravel\Recorders\SignalRecorder;
 
 /**
- * Registration surface for the host application:
+ * The host's registration surface, e.g. in AppServiceProvider::boot():
  *
  *   Ops::auth(fn (Request $request) => $request->user()?->isAdmin());
+ *   Ops::segmentUsing(fn (User $user) => $user->role->value);
+ *   Ops::signal('cross_tenant', key: "user:{$user->id}", meta: ['tenant' => $slug]);
  */
 final class Ops
 {
     /** @var (Closure(Request): bool)|null */
     private static ?Closure $authUsing = null;
 
-    /**
-     * Decide who may open the Ops dashboard outside the local environment.
-     *
-     * @param  Closure(Request): bool  $callback
-     */
+    /** @var (Closure(Authenticatable): string)|null */
+    private static ?Closure $segmentUsing = null;
+
+    /** @var (Closure(ClientRequest): ?string)|null */
+    private static ?Closure $outgoingEndpointUsing = null;
+
+    private static bool $paused = false;
+
+    /** @param  Closure(Request): bool  $callback */
     public static function auth(Closure $callback): void
     {
         self::$authUsing = $callback;
     }
 
-    /**
-     * Local is always allowed; otherwise the registered callback decides, falling back to the `viewOps` gate.
-     */
     public static function check(Request $request): bool
     {
         if (app()->environment('local')) {
@@ -44,9 +52,76 @@ final class Ops
         return Gate::has('viewOps') && Gate::allows('viewOps');
     }
 
-    /** Reset the registered callback. Test seam. */
-    public static function flushAuth(): void
+    /** @param  Closure(Authenticatable): string  $callback */
+    public static function segmentUsing(Closure $callback): void
+    {
+        self::$segmentUsing = $callback;
+    }
+
+    public static function segmentFor(?Authenticatable $user): string
+    {
+        return match (true) {
+            ! $user instanceof Authenticatable => 'guest',
+            self::$segmentUsing instanceof Closure => (string) call_user_func(self::$segmentUsing, $user),
+            default => 'user',
+        };
+    }
+
+    /** @param  Closure(ClientRequest): ?string  $callback */
+    public static function outgoingEndpointUsing(Closure $callback): void
+    {
+        self::$outgoingEndpointUsing = $callback;
+    }
+
+    public static function outgoingEndpointFor(ClientRequest $request): string
+    {
+        $endpoint = self::$outgoingEndpointUsing instanceof Closure ? call_user_func(self::$outgoingEndpointUsing, $request) : null;
+
+        return mb_substr((string) ($endpoint ?? parse_url($request->url(), PHP_URL_HOST) ?? 'unknown'), 0, 255);
+    }
+
+    /** @param  array<string, scalar|null>  $meta */
+    public static function signal(string $signal, string $key = '', array $meta = [], int $count = 1): void
+    {
+        app(SignalRecorder::class)->record($signal, $key, $meta, $count);
+    }
+
+    public static function probe(string $signal, string $key, ProbeLevel $level, ?float $value = null, ?string $message = null): void
+    {
+        rescue(fn () => ProbeState::query()->updateOrCreate(
+            ['signal' => $signal, 'key' => $key],
+            ['level' => $level, 'value' => $value, 'message' => $message === null ? null : mb_substr($message, 0, 500), 'observed_at' => now()],
+        ), report: false);
+    }
+
+    public static function recording(): bool
+    {
+        return ! self::$paused && (bool) config('ops.enabled', true);
+    }
+
+    /**
+     * @template TResult
+     *
+     * @param  Closure(): TResult  $callback
+     * @return TResult
+     */
+    public static function withoutRecording(Closure $callback): mixed
+    {
+        $previous = self::$paused;
+        self::$paused = true;
+
+        try {
+            return $callback();
+        } finally {
+            self::$paused = $previous;
+        }
+    }
+
+    public static function flush(): void
     {
         self::$authUsing = null;
+        self::$segmentUsing = null;
+        self::$outgoingEndpointUsing = null;
+        self::$paused = false;
     }
 }

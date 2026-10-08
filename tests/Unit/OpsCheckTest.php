@@ -7,9 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Phattarachai\OpsLaravel\Ops;
 
-beforeEach(fn () => Ops::flushAuth());
-afterEach(fn () => Ops::flushAuth());
-
 it('allows every request in the local environment', function () {
     $this->app['env'] = 'local';
 

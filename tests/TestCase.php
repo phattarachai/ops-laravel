@@ -5,12 +5,24 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel\Tests;
 
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as BaseTestCase;
-use Phattarachai\OpsLaravel\Facades\Ops;
+use Override;
+use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\OpsServiceProvider;
 
 abstract class TestCase extends BaseTestCase
 {
+    use RefreshDatabase;
+
+    #[Override]
+    protected function tearDown(): void
+    {
+        Ops::flush();
+
+        parent::tearDown();
+    }
+
     /**
      * @param  Application  $app
      * @return array<int, class-string>
@@ -20,12 +32,12 @@ abstract class TestCase extends BaseTestCase
         return [OpsServiceProvider::class];
     }
 
-    /**
-     * @param  Application  $app
-     * @return array<string, class-string>
-     */
-    protected function getPackageAliases($app): array
+    /** @param  Application  $app */
+    protected function defineEnvironment($app): void
     {
-        return ['Ops' => Ops::class];
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
+        $app['config']->set('ops.buffer.driver', 'array');
+        $app['config']->set('cache.default', 'array');
+        $app['config']->set('database.default', 'testing');
     }
 }
