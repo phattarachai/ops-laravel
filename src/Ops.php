@@ -9,7 +9,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Phattarachai\OpsCore\Alerts\Contracts\IncidentChannel;
 use Phattarachai\OpsCore\Alerts\ProbeLevel;
+use Phattarachai\OpsLaravel\Alerts\ChannelRegistry;
 use Phattarachai\OpsLaravel\Models\ProbeState;
 use Phattarachai\OpsLaravel\Recorders\SignalRecorder;
 
@@ -92,6 +94,12 @@ final class Ops
             ['signal' => $signal, 'key' => $key],
             ['level' => $level, 'value' => $value, 'message' => $message === null ? null : mb_substr($message, 0, 500), 'observed_at' => now()],
         ), report: false);
+    }
+
+    /** @param  Closure(): IncidentChannel  $factory */
+    public static function channel(string $name, Closure $factory): void
+    {
+        app(ChannelRegistry::class)->register($name, $factory);
     }
 
     public static function recording(): bool

@@ -67,7 +67,34 @@ return [
         'schedule' => [
             'enabled' => true,
         ],
+        'security' => [
+            'enabled' => true,
+            'statuses' => [401, 403, 404, 419, 429],
+        ],
     ],
+
+    /*
+    | Alert channels. Mail is on by default and sends through one of the host's mailers;
+    | recipients, sender, mailer and the Slack webhook are set on the settings page.
+    */
+    'channels' => [
+        'mail' => [
+            'enabled' => true,
+            'recipients' => [],
+            'mailer' => null,
+            'from_address' => null,
+            'from_name' => null,
+        ],
+        'slack' => [
+            'enabled' => false,
+            'webhook_url' => null,
+        ],
+    ],
+
+    /*
+    | Language of notices and the dashboard (`en` or `th`). Null follows app()->getLocale().
+    */
+    'locale' => null,
 
     'signals' => [
         'user_route_floor' => 30,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phattarachai\OpsLaravel;
 
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
@@ -22,12 +23,19 @@ use Illuminate\Queue\Events\JobTimedOut;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use Phattarachai\OpsCore\Alerts\AlertEngine;
+use Phattarachai\OpsCore\Alerts\RuleEvaluator;
+use Phattarachai\OpsLaravel\Alerts\ChannelRegistry;
+use Phattarachai\OpsLaravel\Alerts\DatabaseSignalReader;
+use Phattarachai\OpsLaravel\Alerts\EloquentIncidentStore;
 use Phattarachai\OpsLaravel\Buffer\ArrayMinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\MinuteBuffer;
 use Phattarachai\OpsLaravel\Buffer\RedisMinuteBuffer;
+use Phattarachai\OpsLaravel\Console\AlertsCommand;
 use Phattarachai\OpsLaravel\Console\PruneCommand;
 use Phattarachai\OpsLaravel\Console\RollupCommand;
 use Phattarachai\OpsLaravel\Http\Middleware\RecordRequests;
+use Phattarachai\OpsLaravel\Recorders\FailedLoginRecorder;
 use Phattarachai\OpsLaravel\Recorders\JobRecorder;
 use Phattarachai\OpsLaravel\Recorders\OutgoingRecorder;
 use Phattarachai\OpsLaravel\Recorders\RequestRecorder;
@@ -49,11 +57,15 @@ final class OpsServiceProvider extends ServiceProvider
         $this->app->singleton(JobRecorder::class);
         $this->app->singleton(ScheduleRecorder::class);
         $this->app->singleton(SignalRecorder::class);
+        $this->app->singleton(ChannelRegistry::class);
+        $this->app->bind(AlertEngine::class, fn (): AlertEngine => new AlertEngine(new RuleEvaluator(new DatabaseSignalReader), new EloquentIncidentStore));
     }
 
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'ops');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'ops');
         $this->registerPublishing();
         $this->registerCommands();
         $this->registerMiddleware();
@@ -81,6 +93,7 @@ final class OpsServiceProvider extends ServiceProvider
 
         $this->publishes([__DIR__.'/../config/ops.php' => config_path('ops.php')], 'ops-config');
         $this->publishes([__DIR__.'/../database/migrations' => database_path('migrations')], 'ops-migrations');
+        $this->publishes([__DIR__.'/../lang' => $this->app->langPath('vendor/ops')], 'ops-lang');
     }
 
     private function registerCommands(): void
@@ -89,7 +102,7 @@ final class OpsServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->commands([RollupCommand::class, PruneCommand::class]);
+        $this->commands([RollupCommand::class, AlertsCommand::class, PruneCommand::class]);
     }
 
     private function registerMiddleware(): void
@@ -117,6 +130,8 @@ final class OpsServiceProvider extends ServiceProvider
 
         Event::listen(fn (ResponseReceived $event) => $this->app->make(OutgoingRecorder::class)->received($event));
         Event::listen(fn (ConnectionFailed $event) => $this->app->make(OutgoingRecorder::class)->failed($event));
+
+        Event::listen(fn (Failed $event) => $this->app->make(FailedLoginRecorder::class)->handle($event));
     }
 
     private function registerSchedule(): void
@@ -127,6 +142,7 @@ final class OpsServiceProvider extends ServiceProvider
             }
 
             $schedule->command('ops:rollup')->everyMinute()->withoutOverlapping();
+            $schedule->command('ops:alerts')->everyMinute()->withoutOverlapping();
             $schedule->command('ops:prune')->dailyAt('03:10')->withoutOverlapping();
         });
     }

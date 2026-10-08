@@ -26,6 +26,7 @@ class RequestRecorder
     public function __construct(
         protected MinuteBuffer $buffer,
         protected OpsSettings $settings,
+        protected SignalRecorder $signals,
     ) {}
 
     public function record(Request $request, Response $response): void
@@ -60,6 +61,26 @@ class RequestRecorder
                 MinuteData::field($userDims, 'ms') => $sample->milliseconds,
                 MinuteData::field($userDims, RequestSample::statusClass($sample->status)) => 1,
             ]);
+        }
+
+        $this->recordSecuritySignal($sample);
+    }
+
+    protected function recordSecuritySignal(RequestSample $sample): void
+    {
+        if (! $this->settings->bool('recorders.security.enabled') || ! in_array($sample->status, array_map(intval(...), (array) $this->settings->get('recorders.security.statuses', [])), true)) {
+            return;
+        }
+
+        $signal = "http.{$sample->status}";
+        $meta = ['route' => $sample->route];
+
+        if ($sample->ip !== null) {
+            $this->signals->record($signal, "ip:{$sample->ip}", $meta);
+        }
+
+        if ($sample->userId !== null) {
+            $this->signals->record($signal, "user:{$sample->userId}", $meta);
         }
     }
 
