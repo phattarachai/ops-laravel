@@ -24,3 +24,10 @@ it('stores secret settings encrypted', function (): void {
     expect($stored)->not->toContain('hooks.slack.test')
         ->and(app(OpsSettings::class)->get('channels.slack.webhook_url'))->toBe('https://hooks.slack.test/T000/B000/abc');
 });
+
+it('falls back to the package default when the host config lacks a newer key', function (): void {
+    config(['ops.recorders' => ['requests' => ['enabled' => true]]]);
+
+    expect(app(OpsSettings::class)->bool('recorders.queues.enabled'))->toBeTrue()
+        ->and(app(OpsSettings::class)->int('recorders.queries.threshold_ms'))->toBe(500);
+});

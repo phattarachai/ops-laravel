@@ -31,7 +31,20 @@ class OpsSettings
     {
         $stored = $this->stored();
 
-        return array_key_exists($key, $stored) ? $stored[$key] : config("ops.{$key}", $default);
+        return array_key_exists($key, $stored) ? $stored[$key] : config("ops.{$key}", Arr::get(self::packageDefaults(), $key, $default));
+    }
+
+    /**
+     * The package's own config/ops.php: a host's published config replaces whole top-level arrays,
+     * so a key added in a later release would otherwise read as null there.
+     *
+     * @return array<string, mixed>
+     */
+    public static function packageDefaults(): array
+    {
+        static $defaults = null;
+
+        return $defaults ??= (array) require __DIR__.'/../../config/ops.php';
     }
 
     public function bool(string $key): bool
