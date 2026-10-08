@@ -118,8 +118,9 @@ final class Ops
 
     /**
      * Extra status blocks for the Overview, e.g. a host's mail or network health. Each block:
-     * key, label, url, health (danger|warning|ok|gray), health_label, numbers (list of {label, value}),
-     * series (list of numbers), attention (list of {tone, label, detail, url}).
+     * key, title, url, health {tone: danger|warning|success|gray, label}, stats (list of {label, value,
+     * sub?, tone?: fail|warn}), chart {span, series (list of {segment: count}), segments (list of
+     * {key, color, label})}, attention (list of {area, name, tone, label, detail, url}).
      *
      * @param  Closure(TimeRange): list<array<string, mixed>>  $callback
      */
