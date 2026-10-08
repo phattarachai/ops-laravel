@@ -39,3 +39,29 @@ vendor/bin/pest              # composer test — Testbench, sqlite :memory:
 vendor/bin/pint              # composer format
 vendor/bin/phpstan analyse   # composer analyse — larastan level 5, phpstan-baseline.neon
 ```
+
+## Dashboard UI — conventions
+
+- **One host page, many views.** Every screen is `UiPage::render('<view>', $props)`; the host's published stub
+  (`stubs/Ops.jsx` → `resources/js/pages/Ops.jsx`) renders `<Ops>` from the `@ops` alias, and `views/index.js`
+  maps the `view` prop to a component. Views wrap their content in `<OpsPage title toolbar>`, which uses the
+  layout from context (default `OpsShell`, or the host's own shell passed as `<Ops layout={AppLayout}>`).
+- **Kit:** `resources/js/ops/ui` (DataTable, Section, SectionGrid, TabSection, Pills, SearchInput, Dropdown,
+  ActionMenu, Badge, Button, Card, Dialog, Icon, PageHeader, form) and `resources/js/ops/charts` (StackedBars,
+  RangeBars, HourOfDay, Histogram, ValueBars, Kpi/KpiStrip, Legend, Sparkline, SparkBars, OutcomeSplit,
+  Incidents, TimeFilter). Ported from f11-dr-backend's panel; keep their props and geometry.
+- **Imports are relative** inside `resources/js/ops` (no `@/` alias — the host owns that). Bare imports allowed:
+  `react`, `react-dom`, `@inertiajs/react`, `lucide-react` (the host provides them).
+- **Colours:** only Tailwind's default palette plus the `ops-*` tokens in `resources/css/ops.css`
+  (`ops-schedule/web/other/ink/fail/warn/ok/muted/grid`, `ops-accent[-600|-50]` for chrome). Red is failure only.
+- **i18n:** write UI text in English through `t('English text', { var })` from `resources/js/ops/i18n`; add the
+  Thai to the area's `i18n/th/<area>.js` (key = the English text). Never call `t()` at module scope — it runs before
+  the locale is set; wrap column definitions in a function. Server-side labels go through `Format::date()`
+  (Carbon `translatedFormat` in the configured locale) and `ops::` lang files.
+- **Reports:** read models live in `src/Ui/Reports/<Area>/`, read through `OpsCache::remember()` (refresh busts
+  it), single-pass over rows. SQL must run on pgsql, mysql and sqlite: branch on
+  `$connection->getDriverName()` for `percentile_cont` / `date_trunc` style SQL and fall back to PHP math (ops-core
+  `LatencyHistogram`, `Bucket`) elsewhere. Tests run on sqlite.
+- **URLs** in props come from `route('ops.*')` plus `TimeFilter::params()`; tokens for classes/routes/tasks are
+  `Format::base64url()`. An unknown token is a 404.
+- Check the JS with `VITE_BIN=<host>/node_modules/vite/bin/vite.js bin/check-js`.

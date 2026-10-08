@@ -35,6 +35,9 @@ final class Ops
 
     private static bool $paused = false;
 
+    /** @var list<array{label: string, url: string, icon: string, group: string|null, active: bool, external: bool}> */
+    private static array $navLinks = [];
+
     /** @param  Closure(Request): bool  $callback */
     public static function auth(Closure $callback): void
     {
@@ -102,6 +105,28 @@ final class Ops
         app(ChannelRegistry::class)->register($name, $factory);
     }
 
+    /**
+     * Extra sidebar entries, e.g. the host's own monitoring pages or Horizon.
+     *
+     * @param  list<array{label: string, url: string, icon?: string, group?: string|null, external?: bool}>|null  $links
+     * @return list<array{label: string, url: string, icon: string, group: string|null, active: bool, external: bool}>
+     */
+    public static function navLinks(?array $links = null): array
+    {
+        if ($links !== null) {
+            self::$navLinks = array_map(fn (array $link): array => [
+                'label' => $link['label'],
+                'url' => $link['url'],
+                'icon' => $link['icon'] ?? 'link-2',
+                'group' => $link['group'] ?? null,
+                'active' => false,
+                'external' => $link['external'] ?? true,
+            ], $links);
+        }
+
+        return array_map(fn (array $link): array => [...$link, 'active' => ! $link['external'] && str_starts_with(request()->url(), $link['url'])], self::$navLinks);
+    }
+
     public static function recording(): bool
     {
         return ! self::$paused && (bool) config('ops.enabled', true);
@@ -131,5 +156,6 @@ final class Ops
         self::$segmentUsing = null;
         self::$outgoingEndpointUsing = null;
         self::$paused = false;
+        self::$navLinks = [];
     }
 }

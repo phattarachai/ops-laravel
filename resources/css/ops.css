@@ -1,0 +1,24 @@
+/*
+ | Ops dashboard palette. The host's Tailwind build imports this file and scans
+ | vendor/phattarachai/ops-laravel/resources/js (ops:install wires both). Override any
+ | token in the host's own @theme, e.g. --color-ops-accent for the brand colour.
+ */
+@theme {
+    --color-ops-schedule: #2a78d6;
+    --color-ops-web: #159a8c;
+    --color-ops-other: #a8a29e;
+    --color-ops-ink: #57534e;
+    --color-ops-fail: #dc2626;
+    --color-ops-warn: #d97706;
+    --color-ops-ok: #16a34a;
+    --color-ops-muted: #e7e5e4;
+    --color-ops-grid: #f0efec;
+    --color-ops-accent: #1c1917;
+    --color-ops-accent-600: #0c0a09;
+    --color-ops-accent-50: #f5f5f4;
+}
+
+.ops-chart text {
+    fill: var(--color-gray-400);
+    font-size: calc(0.625rem / var(--ops-chart-scale, 1));
+}

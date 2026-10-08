@@ -6,6 +6,7 @@ namespace Phattarachai\OpsLaravel\Tests;
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\ServiceProvider as InertiaServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 use Override;
 use Phattarachai\OpsLaravel\Ops;
@@ -29,7 +30,7 @@ abstract class TestCase extends BaseTestCase
      */
     protected function getPackageProviders($app): array
     {
-        return [OpsServiceProvider::class];
+        return [InertiaServiceProvider::class, OpsServiceProvider::class];
     }
 
     /** @param  Application  $app */
@@ -39,5 +40,7 @@ abstract class TestCase extends BaseTestCase
         $app['config']->set('ops.buffer.driver', 'array');
         $app['config']->set('cache.default', 'array');
         $app['config']->set('database.default', 'testing');
+        $app['config']->set('view.paths', [__DIR__.'/resources/views']);
+        $app['config']->set('inertia.testing.ensure_pages_exist', false);
     }
 }

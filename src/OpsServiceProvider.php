@@ -21,6 +21,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobTimedOut;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Phattarachai\OpsCore\Alerts\AlertEngine;
@@ -34,6 +35,7 @@ use Phattarachai\OpsLaravel\Buffer\RedisMinuteBuffer;
 use Phattarachai\OpsLaravel\Console\AlertsCommand;
 use Phattarachai\OpsLaravel\Console\PruneCommand;
 use Phattarachai\OpsLaravel\Console\RollupCommand;
+use Phattarachai\OpsLaravel\Http\Middleware\AuthorizeOps;
 use Phattarachai\OpsLaravel\Http\Middleware\RecordRequests;
 use Phattarachai\OpsLaravel\Recorders\FailedLoginRecorder;
 use Phattarachai\OpsLaravel\Recorders\JobRecorder;
@@ -71,6 +73,19 @@ final class OpsServiceProvider extends ServiceProvider
         $this->registerMiddleware();
         $this->registerListeners();
         $this->registerSchedule();
+        $this->registerRoutes();
+    }
+
+    private function registerRoutes(): void
+    {
+        if (! config('ops.ui.enabled', true) || $this->app->routesAreCached()) {
+            return;
+        }
+
+        Route::prefix(trim((string) config('ops.path', 'ops'), '/'))
+            ->middleware([...(array) config('ops.middleware', ['web']), AuthorizeOps::class])
+            ->name('ops.')
+            ->group(__DIR__.'/../routes/ui.php');
     }
 
     private function buffer(): MinuteBuffer

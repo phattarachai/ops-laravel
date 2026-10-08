@@ -22,6 +22,15 @@ return [
     'middleware' => ['web'],
 
     /*
+    | The host Inertia page every screen renders (published by ops:install as
+    | resources/js/pages/Ops.jsx). Set enabled to false to record without a dashboard.
+    */
+    'ui' => [
+        'enabled' => true,
+        'component' => 'Ops',
+    ],
+
+    /*
     | Hot-path buffer for request, outgoing and signal counters: one hash per minute.
     | `redis` needs Redis 6.2+ (ZADD GT). `array` keeps everything in memory (tests).
     */

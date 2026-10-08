@@ -6,3 +6,4 @@ composer.lock
 /.idea
 /.vscode
 *.cache
+node_modules
