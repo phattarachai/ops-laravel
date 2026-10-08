@@ -1,0 +1,37 @@
+name: phpstan
+
+on:
+  push:
+    branches: [main]
+    paths: ['**.php', 'phpstan.neon.dist']
+  pull_request:
+    branches: [main]
+    paths: ['**.php', 'phpstan.neon.dist']
+
+permissions:
+  contents: read
+
+jobs:
+  phpstan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Resolve ops-core from Packagist
+        # composer.json carries a path repository to a sibling ../ops-core checkout for local
+        # development. CI has no sibling, so drop it and let Packagist resolve the release.
+        run: composer config --unset repositories.ops-core
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --error-format=github

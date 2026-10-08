@@ -1,0 +1,84 @@
+{
+    "name": "phattarachai/ops-laravel",
+    "description": "Self-hosted Laravel monitoring that replaces Pulse: request, job, schedule and outgoing-HTTP telemetry, rollups, an Inertia React dashboard, and alerting by mail and Slack.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "ops",
+        "monitoring",
+        "observability",
+        "pulse",
+        "alerting"
+    ],
+    "authors": [
+        {
+            "name": "Phattarachai Chaimongkol",
+            "email": "pc@phattarachai.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "illuminate/console": "^12.0 || ^13.0",
+        "illuminate/contracts": "^12.0 || ^13.0",
+        "illuminate/database": "^12.0 || ^13.0",
+        "illuminate/http": "^12.0 || ^13.0",
+        "illuminate/mail": "^12.0 || ^13.0",
+        "illuminate/queue": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
+        "inertiajs/inertia-laravel": "^2.0|^3.0",
+        "phattarachai/ops-core": "^0.1"
+    },
+    "repositories": {
+        "ops-core": {
+            "type": "path",
+            "url": "../ops-core",
+            "options": {
+                "symlink": true,
+                "versions": {
+                    "phattarachai/ops-core": "0.1.0"
+                }
+            }
+        }
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.10",
+        "laravel/pint": "^1.24",
+        "orchestra/testbench": "^10.8|^11.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phattarachai\\OpsLaravel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Phattarachai\\OpsLaravel\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Phattarachai\\OpsLaravel\\OpsServiceProvider"
+            ],
+            "aliases": {
+                "Ops": "Phattarachai\\OpsLaravel\\Facades\\Ops"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
