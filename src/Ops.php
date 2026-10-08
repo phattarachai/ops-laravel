@@ -14,6 +14,7 @@ use Phattarachai\OpsCore\Alerts\ProbeLevel;
 use Phattarachai\OpsLaravel\Alerts\ChannelRegistry;
 use Phattarachai\OpsLaravel\Models\ProbeState;
 use Phattarachai\OpsLaravel\Recorders\SignalRecorder;
+use Phattarachai\OpsLaravel\Ui\TimeRange;
 
 /**
  * The host's registration surface, e.g. in AppServiceProvider::boot():
@@ -32,6 +33,12 @@ final class Ops
 
     /** @var (Closure(ClientRequest): ?string)|null */
     private static ?Closure $outgoingEndpointUsing = null;
+
+    /** @var (Closure(list<string>): array<string, array{name: string, detail?: string|null, url?: string|null}>)|null */
+    private static ?Closure $usersUsing = null;
+
+    /** @var list<Closure(TimeRange): list<array<string, mixed>>> */
+    private static array $overviewBlocks = [];
 
     private static bool $paused = false;
 
@@ -83,6 +90,48 @@ final class Ops
         $endpoint = self::$outgoingEndpointUsing instanceof Closure ? call_user_func(self::$outgoingEndpointUsing, $request) : null;
 
         return mb_substr((string) ($endpoint ?? parse_url($request->url(), PHP_URL_HOST) ?? 'unknown'), 0, 255);
+    }
+
+    /**
+     * How the dashboard names user ids (Incoming users, hot users). Default: the auth provider's
+     * model, `name` then `email`.
+     *
+     * @param  Closure(list<string>): array<string, array{name: string, detail?: string|null, url?: string|null}>  $callback
+     */
+    public static function resolveUsersUsing(Closure $callback): void
+    {
+        self::$usersUsing = $callback;
+    }
+
+    /**
+     * @param  list<string>  $ids
+     * @return array<string, array{name: string, detail?: string|null, url?: string|null}>
+     */
+    public static function resolveUsers(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return self::$usersUsing instanceof Closure ? call_user_func(self::$usersUsing, $ids) : (array) rescue(fn (): array => self::defaultUsers($ids), [], report: false);
+    }
+
+    /**
+     * Extra status blocks for the Overview, e.g. a host's mail or network health. Each block:
+     * key, label, url, health (danger|warning|ok|gray), health_label, numbers (list of {label, value}),
+     * series (list of numbers), attention (list of {tone, label, detail, url}).
+     *
+     * @param  Closure(TimeRange): list<array<string, mixed>>  $callback
+     */
+    public static function overviewBlocks(Closure $callback): void
+    {
+        self::$overviewBlocks[] = $callback;
+    }
+
+    /** @return list<Closure(TimeRange): list<array<string, mixed>>> */
+    public static function overviewBlockCallbacks(): array
+    {
+        return self::$overviewBlocks;
     }
 
     /** @param  array<string, scalar|null>  $meta */
@@ -157,5 +206,28 @@ final class Ops
         self::$outgoingEndpointUsing = null;
         self::$paused = false;
         self::$navLinks = [];
+        self::$usersUsing = null;
+        self::$overviewBlocks = [];
+    }
+
+    /**
+     * @param  list<string>  $ids
+     * @return array<string, array{name: string}>
+     */
+    private static function defaultUsers(array $ids): array
+    {
+        $model = config('auth.providers.users.model');
+
+        if (! is_string($model) || ! class_exists($model)) {
+            return [];
+        }
+
+        $users = [];
+
+        foreach ($model::query()->whereKey($ids)->get() as $user) {
+            $users[(string) $user->getKey()] = ['name' => (string) ($user->getAttribute('name') ?? $user->getAttribute('email') ?? "#{$user->getKey()}")];
+        }
+
+        return $users;
     }
 }

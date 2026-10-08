@@ -28,6 +28,10 @@ return [
     'ui' => [
         'enabled' => true,
         'component' => 'Ops',
+
+        // Jobs page grouping: ordered namespace prefix => group label (first match wins).
+        'job_groups' => [],
+        'collapsed_job_groups' => [],
     ],
 
     /*
