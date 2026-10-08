@@ -9,6 +9,7 @@ use Phattarachai\OpsCore\Alerts\AlertEngine;
 use Phattarachai\OpsLaravel\Alerts\NoticeDispatcher;
 use Phattarachai\OpsLaravel\Models\Rule;
 use Phattarachai\OpsLaravel\Ops;
+use Phattarachai\OpsLaravel\Samplers\ScheduleHealthProbe;
 
 /**
  * Evaluates every rule once (scheduled right after ops:rollup) and sends what the incident
@@ -20,11 +21,13 @@ final class AlertsCommand extends Command
 
     protected $description = 'Evaluate Ops alert rules and send incident notices';
 
-    public function handle(AlertEngine $engine, NoticeDispatcher $dispatcher): int
+    public function handle(AlertEngine $engine, NoticeDispatcher $dispatcher, ScheduleHealthProbe $schedules): int
     {
         if (! Ops::recording()) {
             return self::SUCCESS;
         }
+
+        rescue(fn (): int => $schedules->publish(), 0);
 
         $now = now()->toDateTimeImmutable();
         $notices = [];

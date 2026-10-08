@@ -27,6 +27,8 @@ final class BuiltInSignals
 
     public const string EXCEPTION = 'exception';
 
+    public const string SCHEDULE_HEALTH = 'schedule.health';
+
     /** @return array<string, string> signal => description */
     public static function all(): array
     {
@@ -39,6 +41,8 @@ final class BuiltInSignals
             self::OUTGOING_CALL => 'Outgoing calls per endpoint',
             self::OUTGOING_FAILED => 'Failed outgoing calls per endpoint',
             self::EXCEPTION => 'Reported exceptions per class',
+            self::SCHEDULE_HEALTH => 'Probe: each scheduled task over 24 h — failing (critical) or missed runs (warning)',
+            'system.memory / system.disk / system.load' => 'Probes: the scheduler box, against the thresholds settings',
             self::AUTH_FAILED => 'Failed logins per IP (ip:…) and per hashed account (account:…)',
             'http.{status}' => '401 / 403 / 404 / 419 / 429 responses per IP (ip:…) and user (user:…)',
         ];

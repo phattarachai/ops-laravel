@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -11,11 +12,14 @@ use Illuminate\Support\Facades\Route;
 use Phattarachai\OpsCore\Alerts\IncidentStatus;
 use Phattarachai\OpsCore\Alerts\ProbeLevel;
 use Phattarachai\OpsCore\Alerts\RuleType;
+use Phattarachai\OpsCore\Alerts\Severity;
 use Phattarachai\OpsLaravel\Alerts\Channels\IncidentMail;
 use Phattarachai\OpsLaravel\Alerts\DefaultRules;
+use Phattarachai\OpsLaravel\Enums\ScheduleRunStatus;
 use Phattarachai\OpsLaravel\Models\Incident;
 use Phattarachai\OpsLaravel\Models\NotificationSent;
 use Phattarachai\OpsLaravel\Models\Rule;
+use Phattarachai\OpsLaravel\Models\ScheduleRun;
 use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\Settings\OpsSettings;
 use Phattarachai\OpsLaravel\Tests\Fixtures\RecordedJob;
@@ -156,4 +160,14 @@ it('never stores or reports the Slack webhook when a delivery fails', function (
 
     expect(NotificationSent::query()->sole()->error)->not->toContain('secret-token')->toContain('••••')
         ->and(implode(' ', $reported))->not->toContain('secret-token');
+});
+
+it('turns a failing scheduled task into a schedule.health incident', function (): void {
+    app(Schedule::class)->command('inspire')->hourly();
+    ScheduleRun::query()->create(['task' => 'inspire', 'expression' => '0 * * * *', 'status' => ScheduleRunStatus::Failed, 'started_at' => now()->subMinutes(10)]);
+    Rule::query()->create(['name' => 'schedules', 'type' => RuleType::State, 'signal' => 'schedule.health']);
+
+    $this->artisan('ops:alerts');
+
+    expect(Incident::query()->sole())->key->toBe('inspire')->severity->toBe(Severity::Critical);
 });

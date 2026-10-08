@@ -24,6 +24,7 @@ final class DefaultRules
             ['slug' => 'cross-tenant', 'name' => 'Cross-tenant probing', 'type' => RuleType::Threshold, 'signal' => 'cross_tenant', 'distinct_field' => 'tenant', 'threshold' => 3, 'window_seconds' => 600, 'severity' => Severity::Critical],
             ['slug' => 'failed-logins', 'name' => 'Failed logins', 'type' => RuleType::Threshold, 'signal' => BuiltInSignals::AUTH_FAILED, 'threshold' => 20, 'window_seconds' => 600],
             ['slug' => 'user-route-flood', 'name' => 'One user flooding a route', 'type' => RuleType::Threshold, 'signal' => BuiltInSignals::USER_ROUTE, 'threshold' => 120, 'window_seconds' => 60],
+            ['slug' => 'schedule-health', 'name' => 'Scheduled task failing or missed', 'type' => RuleType::State, 'signal' => BuiltInSignals::SCHEDULE_HEALTH, 'threshold' => 0, 'window_seconds' => 0],
             ['slug' => 'job-failures', 'name' => 'Repeated job failures', 'type' => RuleType::Threshold, 'signal' => BuiltInSignals::JOB_FAILED, 'threshold' => 3, 'window_seconds' => 900],
         ];
     }
