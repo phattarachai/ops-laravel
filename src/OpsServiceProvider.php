@@ -61,6 +61,8 @@ final class OpsServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/ops.php', 'ops');
 
+        Ops::flush();
+
         $this->app->singleton(OpsSettings::class);
         $this->app->singleton(MinuteBuffer::class, fn (): MinuteBuffer => $this->buffer());
         $this->app->singleton(RequestRecorder::class);
