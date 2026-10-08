@@ -18,6 +18,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Http\Client\Events\ConnectionFailed;
 use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessed;
@@ -43,6 +44,7 @@ use Phattarachai\OpsLaravel\Console\RollupCommand;
 use Phattarachai\OpsLaravel\Http\Middleware\AuthorizeOps;
 use Phattarachai\OpsLaravel\Http\Middleware\RecordRequests;
 use Phattarachai\OpsLaravel\Recorders\CacheRecorder;
+use Phattarachai\OpsLaravel\Recorders\ExceptionRecorder;
 use Phattarachai\OpsLaravel\Recorders\FailedLoginRecorder;
 use Phattarachai\OpsLaravel\Recorders\JobRecorder;
 use Phattarachai\OpsLaravel\Recorders\OutgoingRecorder;
@@ -160,6 +162,7 @@ final class OpsServiceProvider extends ServiceProvider
         Event::listen(fn (QueryExecuted $event) => $this->app->make(QueryRecorder::class)->record($event));
         Event::listen(fn (CacheHit $event) => $this->app->make(CacheRecorder::class)->record($event));
         Event::listen(fn (CacheMissed $event) => $this->app->make(CacheRecorder::class)->record($event));
+        Event::listen(fn (MessageLogged $event) => $this->app->make(ExceptionRecorder::class)->handle($event));
     }
 
     private function registerSchedule(): void

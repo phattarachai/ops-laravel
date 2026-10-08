@@ -12,6 +12,7 @@ use Phattarachai\OpsLaravel\Http\Controllers\RequestsController;
 use Phattarachai\OpsLaravel\Http\Controllers\RulesController;
 use Phattarachai\OpsLaravel\Http\Controllers\SchedulesController;
 use Phattarachai\OpsLaravel\Http\Controllers\SettingsController;
+use Phattarachai\OpsLaravel\Http\Controllers\SystemController;
 
 Route::get('/', [OverviewController::class, 'index'])->name('overview');
 Route::post('refresh', RefreshController::class)->name('refresh');
@@ -27,6 +28,8 @@ Route::get('jobs/{token}', [JobsController::class, 'show'])->name('jobs.show');
 
 Route::get('schedules', [SchedulesController::class, 'index'])->name('schedules');
 Route::get('schedules/{token}', [SchedulesController::class, 'show'])->name('schedules.show');
+
+Route::get('system', SystemController::class)->name('system');
 
 Route::get('incidents', [IncidentsController::class, 'index'])->name('incidents');
 Route::get('incidents/{token}', [IncidentsController::class, 'show'])->name('incidents.show')->whereNumber('token');

@@ -15,6 +15,7 @@ final class Nav
         ['label' => 'Outgoing', 'route' => 'ops.outgoing', 'icon' => 'arrow-up-right', 'group' => 'Traffic'],
         ['label' => 'Jobs', 'route' => 'ops.jobs', 'icon' => 'layers', 'group' => 'Background'],
         ['label' => 'Schedules', 'route' => 'ops.schedules', 'icon' => 'calendar-clock', 'group' => 'Background'],
+        ['label' => 'System', 'route' => 'ops.system', 'icon' => 'gauge', 'group' => 'Background'],
         ['label' => 'Incidents', 'route' => 'ops.incidents', 'icon' => 'bell', 'group' => 'Alerts'],
         ['label' => 'Rules', 'route' => 'ops.rules', 'icon' => 'scroll-text', 'group' => 'Alerts'],
         ['label' => 'Settings', 'route' => 'ops.settings', 'icon' => 'wrench', 'group' => 'Alerts'],

@@ -11,6 +11,7 @@ import Rules from './Rules'
 import Schedule from './Schedule'
 import Schedules from './Schedules'
 import Settings from './Settings'
+import System from './System'
 
 export const VIEWS = {
     overview: Overview,
@@ -26,4 +27,5 @@ export const VIEWS = {
     'incidents.show': Incident,
     rules: Rules,
     settings: Settings,
+    system: System,
 }

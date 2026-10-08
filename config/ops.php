@@ -99,6 +99,9 @@ return [
         'system' => [
             'enabled' => true,
         ],
+        'exceptions' => [
+            'enabled' => true,
+        ],
     ],
 
     /*

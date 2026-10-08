@@ -25,6 +25,8 @@ final class BuiltInSignals
 
     public const string AUTH_FAILED = 'auth.failed';
 
+    public const string EXCEPTION = 'exception';
+
     /** @return array<string, string> signal => description */
     public static function all(): array
     {
@@ -36,6 +38,7 @@ final class BuiltInSignals
             self::SCHEDULE_FAILED => 'Failed scheduled task runs per task',
             self::OUTGOING_CALL => 'Outgoing calls per endpoint',
             self::OUTGOING_FAILED => 'Failed outgoing calls per endpoint',
+            self::EXCEPTION => 'Reported exceptions per class',
             self::AUTH_FAILED => 'Failed logins per IP (ip:…) and per hashed account (account:…)',
             'http.{status}' => '401 / 403 / 404 / 419 / 429 responses per IP (ip:…) and user (user:…)',
         ];

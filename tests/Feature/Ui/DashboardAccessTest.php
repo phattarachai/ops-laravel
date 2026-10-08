@@ -14,7 +14,7 @@ it('renders every screen through the one host page with the shared ops prop', fu
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Ops')
             ->where('view', $view)
-            ->has('ops.nav', 8)
+            ->has('ops.nav', 9)
             ->where('ops.locale', 'en'));
 })->with([
     ['ops.overview', 'overview'],
@@ -25,6 +25,7 @@ it('renders every screen through the one host page with the shared ops prop', fu
     ['ops.incidents', 'incidents'],
     ['ops.rules', 'rules'],
     ['ops.settings', 'settings'],
+    ['ops.system', 'system'],
 ]);
 
 it('refuses the dashboard outside local without authorization', function (): void {
