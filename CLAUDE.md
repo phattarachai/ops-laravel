@@ -13,7 +13,7 @@ Status: M1 skeleton only — provider, config, `Ops` auth surface and facade. No
 ## Core first
 
 Framework-free logic lives in [`phattarachai/ops-core`](https://github.com/phattarachai/ops-core) (sibling checkout at
-`/Users/phatchai/www/packages/ops-core`, wired here through a symlinked path repository). Before writing rollup math,
+`../ops-core`, wired here through a symlinked path repository). Before writing rollup math,
 latency histogram bucketing/percentiles, alert rule evaluation or incident state transitions, put it in core. This
 package keeps only the Laravel wiring: config → constructor arguments, DB/queue/cache, routes, Inertia, mail and Slack.
 
@@ -49,7 +49,7 @@ vendor/bin/phpstan analyse   # composer analyse — larastan level 5, phpstan-ba
 - **Kit:** `resources/js/ops/ui` (DataTable, Section, SectionGrid, TabSection, Pills, SearchInput, Dropdown,
   ActionMenu, Badge, Button, Card, Dialog, Icon, PageHeader, form) and `resources/js/ops/charts` (StackedBars,
   RangeBars, HourOfDay, Histogram, ValueBars, Kpi/KpiStrip, Legend, Sparkline, SparkBars, OutcomeSplit,
-  Incidents, TimeFilter). Ported from f11-dr-backend's panel; keep their props and geometry.
+  Incidents, TimeFilter). Ported from the in-app panel the package was extracted from; keep their props and geometry.
 - **Imports are relative** inside `resources/js/ops` (no `@/` alias — the host owns that). Bare imports allowed:
   `react`, `react-dom`, `@inertiajs/react`, `lucide-react` (the host provides them).
 - **Colours:** only Tailwind's default palette plus the `ops-*` tokens in `resources/css/ops.css`
