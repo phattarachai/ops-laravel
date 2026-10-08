@@ -12,7 +12,7 @@ Self-hosted Laravel monitoring that replaces Pulse: request, job, schedule and o
 Inertia React dashboard, and alerting by mail and Slack. The framework-free math (rollups, latency histograms, alert rule
 evaluation, incident lifecycle) lives in [`phattarachai/ops-core`](https://github.com/phattarachai/ops-core).
 
-> **Status: pre-release.** Nothing is tagged yet and the API can still change until `v0.1.0`.
+> **Status: 0.x.** The API can still change between minor versions until `v1.0`. Built for and running in production on one large Laravel 13 app first.
 
 ## What it records
 

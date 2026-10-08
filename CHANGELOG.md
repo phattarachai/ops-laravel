@@ -7,7 +7,6 @@ Release notes are drafted automatically from merged pull requests and published 
 
 This file records anything released before that automation landed.
 
-## Unreleased
+## v0.1.0 — 2026-10-08
 
-- Package skeleton: `OpsServiceProvider` (config merge + `ops-config` publish tag), `Ops::auth()` / `Ops::check()`
-  dashboard gate, the `Ops` facade, CI matrix (PHP 8.4 × Laravel 12/13 × lowest/stable), Pint and larastan.
+First release; see the [v0.1.0 release notes](https://github.com/phattarachai/ops-laravel/releases/tag/v0.1.0).
