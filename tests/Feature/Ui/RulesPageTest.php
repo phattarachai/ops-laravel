@@ -150,7 +150,7 @@ it('deletes a rule', function (): void {
 });
 
 it('adds the default rules once', function (): void {
-    $this->post(route('ops.rules.defaults'))->assertSessionHas('ops.flash.vars.count', count(DefaultRules::definitions()));
+    $this->post(route('ops.rules.defaults'))->assertSessionHas('ops.flash.message', count(DefaultRules::definitions()).' default rules added');
     $this->post(route('ops.rules.defaults'))->assertSessionHas('ops.flash.tone', 'info');
 
     expect(Rule::query()->count())->toBe(count(DefaultRules::definitions()));

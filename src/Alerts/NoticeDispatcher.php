@@ -6,6 +6,7 @@ namespace Phattarachai\OpsLaravel\Alerts;
 
 use Phattarachai\OpsCore\Alerts\IncidentNotice;
 use Phattarachai\OpsLaravel\Models\NotificationSent;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -37,8 +38,8 @@ final readonly class NoticeDispatcher
         try {
             $this->channels->get($name)?->send($notice);
         } catch (Throwable $exception) {
-            $error = $exception->getMessage();
-            report($exception);
+            $error = (string) DeliveryError::redact($exception->getMessage());
+            report(new RuntimeException("Ops {$name} delivery failed: {$error}"));
         }
 
         $this->log($name, $notice, $error);

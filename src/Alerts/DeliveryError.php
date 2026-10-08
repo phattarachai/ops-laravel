@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Phattarachai\OpsLaravel\Ui\Reports\Incidents;
+namespace Phattarachai\OpsLaravel\Alerts;
 
 use Phattarachai\OpsLaravel\Settings\OpsSettings;
 

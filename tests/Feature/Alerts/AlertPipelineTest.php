@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
@@ -131,4 +133,27 @@ it('seeds the default rules once without overwriting edits', function (): void {
 
     expect(DefaultRules::seed())->toBe(0)
         ->and(Rule::query()->where('slug', 'http-403-burst')->value('threshold'))->toBe(50.0);
+});
+
+it('never stores or reports the Slack webhook when a delivery fails', function (): void {
+    Http::fake(['hooks.slack.test/*' => fn () => throw new ConnectionException('cURL error 6: Could not resolve host for https://hooks.slack.test/services/T/B/secret-token')]);
+    app(OpsSettings::class)->set('channels.slack.enabled', true);
+    app(OpsSettings::class)->set('channels.slack.webhook_url', 'https://hooks.slack.test/services/T/B/secret-token');
+    $reported = [];
+    app(ExceptionHandler::class)->reportable(function (Throwable $exception) use (&$reported): bool {
+        $reported[] = $exception->getMessage();
+
+        return false;
+    });
+    burstRule(['channels' => ['slack']]);
+
+    foreach (range(1, 3) as $ignored) {
+        $this->getJson('api/secret');
+    }
+
+    rollupAt('2026-10-08 10:16:02');
+    $this->artisan('ops:alerts');
+
+    expect(NotificationSent::query()->sole()->error)->not->toContain('secret-token')->toContain('••••')
+        ->and(implode(' ', $reported))->not->toContain('secret-token');
 });

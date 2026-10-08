@@ -29,7 +29,7 @@ final class RulesController
     {
         $rule = Rule::query()->create([...$request->attributesForRule(), 'muted_until' => $request->mutedUntil(null)]);
 
-        $this->toast('Rule ":name" created', ['name' => $rule->name]);
+        UiPage::toast('Rule ":name" created', ['name' => $rule->name]);
 
         return back();
     }
@@ -39,9 +39,9 @@ final class RulesController
         $rule->update([...$request->attributesForRule(), 'muted_until' => $request->mutedUntil($rule->muted_until)]);
 
         match ($request->mute()) {
-            null => $this->toast('Rule ":name" saved', ['name' => $rule->name]),
-            'clear' => $this->toast('Rule ":name" unmuted', ['name' => $rule->name]),
-            default => $this->toast('Rule ":name" muted until :time', ['name' => $rule->name, 'time' => (string) Format::date($rule->muted_until)]),
+            null => UiPage::toast('Rule ":name" saved', ['name' => $rule->name]),
+            'clear' => UiPage::toast('Rule ":name" unmuted', ['name' => $rule->name]),
+            default => UiPage::toast('Rule ":name" muted until :time', ['name' => $rule->name, 'time' => (string) Format::date($rule->muted_until)]),
         };
 
         return back();
@@ -51,7 +51,7 @@ final class RulesController
     {
         $rule->delete();
 
-        $this->toast('Rule ":name" deleted', ['name' => $rule->name]);
+        UiPage::toast('Rule ":name" deleted', ['name' => $rule->name]);
 
         return back();
     }
@@ -61,20 +61,9 @@ final class RulesController
         $created = DefaultRules::seed();
 
         $created > 0
-            ? $this->toast(':count default rules added', ['count' => $created])
-            : $this->toast('The default rules are already in place', tone: 'info');
+            ? UiPage::toast(':count default rules added', ['count' => $created])
+            : UiPage::toast('The default rules are already in place', tone: 'info');
 
         return back();
-    }
-
-    /** @param  array<string, string|int>  $vars */
-    private function toast(string $text, array $vars = [], string $tone = 'success'): void
-    {
-        session()->flash('ops.flash', [
-            'message' => strtr($text, collect($vars)->mapWithKeys(fn (string|int $value, string $name): array => [":{$name}" => (string) $value])->all()),
-            'tone' => $tone,
-            'text' => $text,
-            'vars' => $vars,
-        ]);
     }
 }

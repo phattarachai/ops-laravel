@@ -1,0 +1,13 @@
+{
+    "Incident resolved": "ปิด incident แล้ว",
+    "Rule \":name\" created": "สร้าง rule “:name” แล้ว",
+    "Rule \":name\" saved": "บันทึก rule “:name” แล้ว",
+    "Rule \":name\" unmuted": "เปิดเสียง rule “:name” แล้ว",
+    "Rule \":name\" muted until :time": "ปิดเสียง rule “:name” ถึง :time",
+    "Rule \":name\" deleted": "ลบ rule “:name” แล้ว",
+    ":count default rules added": "เพิ่ม rule มาตรฐาน :count รายการ",
+    "The default rules are already in place": "มี rule มาตรฐานครบแล้ว",
+    "Settings saved": "บันทึกการตั้งค่าแล้ว",
+    "Test notification sent through :channel": "ส่งแจ้งเตือนทดสอบทาง :channel แล้ว",
+    "Test through :channel failed: :error": "ทดสอบทาง :channel ไม่สำเร็จ: :error"
+}

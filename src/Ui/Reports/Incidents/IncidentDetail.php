@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phattarachai\OpsLaravel\Ui\Reports\Incidents;
 
 use Carbon\CarbonImmutable;
+use Phattarachai\OpsLaravel\Alerts\DeliveryError;
 use Phattarachai\OpsLaravel\Models\Incident;
 use Phattarachai\OpsLaravel\Models\NotificationSent;
 use Phattarachai\OpsLaravel\Models\Rule;

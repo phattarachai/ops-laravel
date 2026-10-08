@@ -45,19 +45,8 @@ final class IncidentsController
             OpsCache::bust();
         }
 
-        $this->toast('Incident resolved');
+        UiPage::toast('Incident resolved');
 
         return back();
-    }
-
-    /** @param  array<string, string|int>  $vars */
-    private function toast(string $text, array $vars = [], string $tone = 'success'): void
-    {
-        session()->flash('ops.flash', [
-            'message' => strtr($text, collect($vars)->mapWithKeys(fn (string|int $value, string $name): array => [":{$name}" => (string) $value])->all()),
-            'tone' => $tone,
-            'text' => $text,
-            'vars' => $vars,
-        ]);
     }
 }

@@ -11,11 +11,11 @@ use Phattarachai\OpsLaravel\Alerts\ChannelRegistry;
 use Phattarachai\OpsLaravel\Alerts\Channels\MailChannel;
 use Phattarachai\OpsLaravel\Alerts\Channels\SlackChannel;
 use Phattarachai\OpsLaravel\Alerts\ChannelTester;
+use Phattarachai\OpsLaravel\Alerts\DeliveryError;
 use Phattarachai\OpsLaravel\Http\Requests\SettingsRequest;
 use Phattarachai\OpsLaravel\Models\NotificationSent;
 use Phattarachai\OpsLaravel\Settings\OpsSettings;
 use Phattarachai\OpsLaravel\Ui\Format;
-use Phattarachai\OpsLaravel\Ui\Reports\Incidents\DeliveryError;
 use Phattarachai\OpsLaravel\Ui\UiPage;
 
 /**
@@ -48,7 +48,7 @@ final class SettingsController
         }
 
         $this->storeWebhook($request);
-        $this->toast('Settings saved');
+        UiPage::toast('Settings saved');
 
         return back();
     }
@@ -58,8 +58,8 @@ final class SettingsController
         abort_unless(in_array($channel, $channels->names(), true), 404);
 
         $tester->test($channel)
-            ? $this->toast('Test notification sent through :channel', ['channel' => $channel])
-            : $this->toast('Test through :channel failed: :error', ['channel' => $channel, 'error' => $this->lastError($channel)], 'error');
+            ? UiPage::toast('Test notification sent through :channel', ['channel' => $channel])
+            : UiPage::toast('Test through :channel failed: :error', ['channel' => $channel, 'error' => $this->lastError($channel)], 'error');
 
         return back();
     }
@@ -140,16 +140,5 @@ final class SettingsController
         $error = NotificationSent::query()->where('channel', $channel)->where('delivered', false)->latest('id')->value('error');
 
         return (string) (DeliveryError::redact(is_string($error) ? $error : null) ?? 'unknown error');
-    }
-
-    /** @param  array<string, string|int>  $vars */
-    private function toast(string $text, array $vars = [], string $tone = 'success'): void
-    {
-        session()->flash('ops.flash', [
-            'message' => strtr($text, collect($vars)->mapWithKeys(fn (string|int $value, string $name): array => [":{$name}" => (string) $value])->all()),
-            'tone' => $tone,
-            'text' => $text,
-            'vars' => $vars,
-        ]);
     }
 }
