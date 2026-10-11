@@ -121,3 +121,12 @@ from Packagist instead, so **CI stays red until ops-core is published** on GitHu
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## ผู้พัฒนา
+
+พัฒนาและดูแลโดย [บริษัท ภัทรชัย อาร์ทิซาน จำกัด](https://phattarachai.dev) (Phattarachai Artisan)
+บริษัทที่ปรึกษาและพัฒนาเว็บ ที่เรียนรู้และแบ่งปันกับชุมชน Laravel
+แพ็กเกจนี้แบ่งปันให้ชุมชนนำไปใช้และต่อยอดได้อย่างอิสระ
+
+ดูแพ็กเกจอื่นของเราได้ที่ [phattarachai.dev/open-source](https://phattarachai.dev/open-source)
+และติดต่อเราได้ที่ [phattarachai.dev](https://phattarachai.dev/#contact)
