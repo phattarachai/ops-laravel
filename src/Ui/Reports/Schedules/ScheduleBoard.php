@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Phattarachai\OpsCore\Schedule\MissedTicks;
 use Phattarachai\OpsLaravel\Enums\ScheduleRunStatus;
+use Phattarachai\OpsLaravel\Models\Deploy;
 use Phattarachai\OpsLaravel\Models\ScheduleRun;
 use Phattarachai\OpsLaravel\Ui\Format;
 use Phattarachai\OpsLaravel\Ui\OpsCache;
@@ -20,8 +21,10 @@ use Phattarachai\OpsLaravel\Ui\TimeRange;
 /**
  * One row per scheduled task: the live schedule merged with `ops_schedule_runs` for runs /
  * failed / skipped / p95 in the window, the last non-skipped run and the missed ticks of the last
- * 24 h (a tick with no run or skip starting within five minutes, counted only after the task's
- * first recorded row; the tick at the window's opening minute is left out).
+ * 24 h (a tick with no run or skip starting within five minutes). Each cron expression's ticks
+ * count only after the first recorded row with that expression, so a changed schedule never
+ * judges the old one; the tick at that opening minute is left out. Ticks within the grace period
+ * of an `ops_deploys` row are excused: cron can fire mid-cutover with nothing to record it.
  */
 final class ScheduleBoard
 {
@@ -47,18 +50,28 @@ final class ScheduleBoard
     /**
      * @param  Collection<int, Event>  $events
      * @param  list<int>  $seen  sorted run / skip start timestamps
+     * @param  array<string, CarbonImmutable>  $recordingSince  the task's first recorded row per expression
+     * @param  list<array{int, int}>  $excused  deploy windows, see deployWindows()
      */
-    public static function missed(Collection $events, array $seen, ?CarbonImmutable $recordingSince, ?CarbonImmutable $now = null): ?int
+    public static function missed(Collection $events, array $seen, array $recordingSince, array $excused = [], ?CarbonImmutable $now = null): ?int
     {
-        if (! $recordingSince instanceof CarbonImmutable) {
+        $tracked = $events->filter(fn (Event $event): bool => isset($recordingSince[$event->getExpression()]));
+
+        if ($tracked->isEmpty()) {
             return null;
         }
 
         $now ??= CarbonImmutable::now();
-        $from = $recordingSince->max($now->subDay())->startOfMinute()->addMinute();
         $to = $now->subMinutes(ScheduledTasks::GRACE_MINUTES);
+        $ticks = $tracked
+            ->groupBy(fn (Event $event): string => $event->getExpression())
+            ->flatMap(fn (Collection $group, string $expression): array => ScheduledTasks::ticks($group, self::countFrom($recordingSince[$expression], $now), $to))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
-        return MissedTicks::count(ScheduledTasks::ticks($events, $from, $to), $seen, ScheduledTasks::GRACE_MINUTES * 60);
+        return MissedTicks::count($ticks, $seen, ScheduledTasks::GRACE_MINUTES * 60, $excused);
     }
 
     /**
@@ -74,13 +87,56 @@ final class ScheduleBoard
             ->map(fn (mixed $at): CarbonImmutable => CarbonImmutable::parse((string) $at));
     }
 
+    /**
+     * @return Collection<array-key, array<string, CarbonImmutable>>
+     */
+    public static function firstSeenByExpression(): Collection
+    {
+        return ScheduleRun::query()
+            ->toBase()
+            ->selectRaw('task, expression, min(started_at) as first_at')
+            ->groupBy('task', 'expression')
+            ->get()
+            ->groupBy('task')
+            ->map(fn (Collection $rows): array => $rows
+                ->mapWithKeys(fn (object $row): array => [(string) $row->expression => CarbonImmutable::parse((string) $row->first_at)])
+                ->all());
+    }
+
+    /**
+     * Each deploy of the last 24 h as an excused [from, to] window, padded by the grace period on
+     * both sides: `deployed_at` is when Ops noticed the release (the first `ops:rollup` on it, or
+     * `ops:deploy`), so the cutover tick falls just before it.
+     *
+     * @return list<array{int, int}>
+     */
+    public static function deployWindows(?CarbonImmutable $now = null): array
+    {
+        $now ??= CarbonImmutable::now();
+        $pad = ScheduledTasks::GRACE_MINUTES * 60;
+
+        return Deploy::query()
+            ->where('deployed_at', '>=', $now->subDay()->subSeconds($pad))
+            ->oldest('deployed_at')
+            ->get(['deployed_at'])
+            ->map(fn (Deploy $deploy): array => [$deploy->deployed_at->getTimestamp() - $pad, $deploy->deployed_at->getTimestamp() + $pad])
+            ->values()
+            ->all();
+    }
+
+    private static function countFrom(CarbonImmutable $recordingSince, CarbonImmutable $now): CarbonImmutable
+    {
+        return $recordingSince->max($now->subDay())->startOfMinute()->addMinute();
+    }
+
     /** @return list<array<string, mixed>> */
     private static function freshTasks(TimeRange $range): array
     {
         $stats = self::stats($range);
         $last = self::lastRuns();
-        $firstSeen = self::firstSeen();
+        $firstSeen = self::firstSeenByExpression();
         $seen = self::seenSinceYesterday();
+        $deploys = self::deployWindows();
 
         return ScheduledTasks::events()
             ->map(fn (Collection $events, string $task): array => self::row(
@@ -88,7 +144,7 @@ final class ScheduleBoard
                 $events,
                 $stats->get($task),
                 $last->get($task),
-                self::missed($events, $seen->get($task, []), $firstSeen->get($task)),
+                self::missed($events, $seen->get($task, []), $firstSeen->get($task, []), $deploys),
             ))
             ->sortBy(fn (array $row): array => [array_search($row['health'], self::HEALTH_ORDER, true), $row['name']])
             ->values()

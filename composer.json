@@ -32,7 +32,7 @@
         "illuminate/routing": "^12.0 || ^13.0",
         "illuminate/support": "^12.0 || ^13.0",
         "inertiajs/inertia-laravel": "^2.0|^3.0",
-        "phattarachai/ops-core": "^0.1"
+        "phattarachai/ops-core": "^0.1.1"
     },
     "repositories": {
         "ops-core": {
@@ -41,7 +41,7 @@
             "options": {
                 "symlink": true,
                 "versions": {
-                    "phattarachai/ops-core": "0.1.0"
+                    "phattarachai/ops-core": "0.1.1"
                 }
             }
         }

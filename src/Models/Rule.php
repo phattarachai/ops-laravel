@@ -31,6 +31,7 @@ use Phattarachai\OpsCore\Alerts\Severity;
  * @property list<string>|null $channels
  * @property bool $active
  * @property bool $notify_on_resolve
+ * @property bool $remind_warnings
  * @property CarbonImmutable|null $muted_until
  */
 final class Rule extends OpsModel
@@ -59,6 +60,7 @@ final class Rule extends OpsModel
             active: $this->active,
             mutedUntil: $this->muted_until?->toDateTimeImmutable(),
             notifyOnResolve: $this->notify_on_resolve,
+            remindWarnings: $this->remind_warnings ?? true,
         );
     }
 
@@ -75,6 +77,7 @@ final class Rule extends OpsModel
             'channels' => 'array',
             'active' => 'boolean',
             'notify_on_resolve' => 'boolean',
+            'remind_warnings' => 'boolean',
             'muted_until' => 'immutable_datetime',
         ];
     }
