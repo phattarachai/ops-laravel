@@ -5,10 +5,12 @@ declare(strict_types=1);
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Phattarachai\OpsCore\Alerts\IncidentStatus;
 use Phattarachai\OpsCore\Alerts\ProbeLevel;
 use Phattarachai\OpsCore\Alerts\RuleType;
@@ -23,6 +25,7 @@ use Phattarachai\OpsLaravel\Models\ScheduleRun;
 use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\Settings\OpsSettings;
 use Phattarachai\OpsLaravel\Tests\Fixtures\RecordedJob;
+use Phattarachai\OpsLaravel\Ui\OpsCache;
 
 beforeEach(function (): void {
     Mail::fake();
@@ -170,4 +173,70 @@ it('turns a failing scheduled task into a schedule.health incident', function ()
     $this->artisan('ops:alerts');
 
     expect(Incident::query()->sole())->key->toBe('inspire')->severity->toBe(Severity::Critical);
+});
+
+function scheduleHealthRule(): Rule
+{
+    DefaultRules::seed();
+    Rule::query()->where('slug', '<>', 'schedule-health')->delete();
+    Rule::query()->where('slug', 'schedule-health')->update(['environments' => null]);
+
+    return Rule::query()->sole();
+}
+
+function alertsAt(string $at): void
+{
+    test()->travelTo(CarbonImmutable::parse($at));
+    OpsCache::bust();
+    test()->artisan('ops:alerts')->assertSuccessful();
+}
+
+it('mails a missed-run schedule incident on open and resolve only', function (): void {
+    expect(scheduleHealthRule()->remind_warnings)->toBeFalse();
+    app(Schedule::class)->command('inspire')->hourly();
+
+    foreach (['08:00:02', '09:00:02'] as $at) {
+        ScheduleRun::query()->create(['task' => 'inspire', 'expression' => '0 * * * *', 'status' => ScheduleRunStatus::Success, 'started_at' => "2026-10-08 {$at}"]);
+    }
+
+    alertsAt('2026-10-08 10:15:10');
+
+    expect(Incident::query()->sole())->key->toBe('inspire')->severity->toBe(Severity::Warning);
+
+    foreach (['10:31:10', '10:47:10', '11:20:10'] as $at) {
+        alertsAt("2026-10-08 {$at}");
+    }
+
+    ScheduleRun::query()->create(['task' => 'inspire', 'expression' => '0 * * * *', 'status' => ScheduleRunStatus::Skipped, 'started_at' => '2026-10-08 10:00:30']);
+    ScheduleRun::query()->create(['task' => 'inspire', 'expression' => '0 * * * *', 'status' => ScheduleRunStatus::Success, 'started_at' => '2026-10-08 11:00:02']);
+    alertsAt('2026-10-08 11:21:10');
+    alertsAt('2026-10-08 11:27:10');
+
+    expect(Incident::query()->sole()->status)->toBe(IncidentStatus::Resolved)
+        ->and(NotificationSent::query()->orderBy('id')->pluck('kind')->all())->toBe(['opened', 'resolved']);
+});
+
+it('keeps reminding about a failing scheduled task', function (): void {
+    scheduleHealthRule();
+    app(Schedule::class)->command('inspire')->hourly();
+    ScheduleRun::query()->create(['task' => 'inspire', 'expression' => '0 * * * *', 'status' => ScheduleRunStatus::Failed, 'started_at' => '2026-10-08 10:00:02']);
+
+    alertsAt('2026-10-08 10:15:10');
+    alertsAt('2026-10-08 10:31:10');
+
+    expect(Incident::query()->sole()->severity)->toBe(Severity::Critical)
+        ->and(NotificationSent::query()->orderBy('id')->pluck('kind')->all())->toBe(['opened', 'reminder']);
+});
+
+it('turns warning reminders off for an existing schedule-health rule when migrating', function (): void {
+    $schema = Schema::connection(config('ops.connection'));
+    $schema->table('ops_rules', fn (Blueprint $table) => $table->dropColumn('remind_warnings'));
+    Rule::query()->insert([
+        ['slug' => 'schedule-health', 'name' => 'schedules', 'type' => 'state', 'signal' => 'schedule.health'],
+        ['slug' => 'job-failures', 'name' => 'jobs', 'type' => 'threshold', 'signal' => 'job.failed'],
+    ]);
+
+    (require __DIR__.'/../../../database/migrations/2026_10_13_000001_add_remind_warnings_to_ops_rules.php')->up();
+
+    expect(Rule::query()->orderBy('id')->pluck('remind_warnings', 'slug')->all())->toBe(['schedule-health' => false, 'job-failures' => true]);
 });

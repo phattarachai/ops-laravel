@@ -75,7 +75,28 @@ escalates), and resolves after the rule has been clear for a while. Built-in sig
 `schedule.run`, `schedule.failed`, `outgoing.call`, `outgoing.failed`, `http.user_route`, `http.{status}`, `auth.failed`.
 
 `ops:install` seeds starting rules (production only): 403 ≥ 20 and 429 ≥ 10 per IP/user in 5 minutes, cross-tenant
-probing ≥ 3 distinct tenants in 10 minutes, failed logins, one user flooding one route, repeated job failures.
+probing ≥ 3 distinct tenants in 10 minutes, failed logins, one user flooding one route, repeated job failures, and
+scheduled task health.
+
+A rule's **Remind about warnings** switch (`remind_warnings`) decides whether warning-level incidents get reminders.
+Turn it off and a warning notifies when it opens and when it resolves, while critical incidents keep their reminders.
+The seeded `schedule-health` rule has it off.
+
+### Schedule health
+
+`ops:alerts` publishes each scheduled task's last 24 h as the `schedule.health` probe. The Schedules page shows the
+same numbers. A task is **failing** (critical) when a run failed. It has **missed runs** (warning) when a cron tick had
+no run or skip starting within 5 minutes after it. Three things keep that count honest:
+
+- **Changed schedules.** Each cron expression is judged only from its first recorded run on that expression, so moving
+  `dailyAt('01:06')` to `dailyAt('03:30')` doesn't count the new 03:30 tick as missed before it has ever run.
+- **Deploys.** Ticks within 5 minutes either side of a deploy in `ops_deploys` are excused. During the cutover, cron
+  can fire into a half-swapped release that records nothing. A deploy is recorded at the first `ops:rollup` on a new
+  release (`OPS_RELEASE`, `REVISION` or git HEAD), or when the deploy script runs `php artisan ops:deploy`.
+- **Maintenance mode.** While the app is down, `schedule:run` drops tasks that aren't `evenInMaintenanceMode()` without
+  firing any event. Ops records those due ticks as `skipped` runs instead, so a long `migrate` behind `artisan down`
+  doesn't read as missed. These rows come from the scheduler process itself, which makes them a more reliable signal
+  than guessing the length of a deploy.
 
 Channels are configured on the Settings page, each with a **Send test** button:
 

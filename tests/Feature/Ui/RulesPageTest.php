@@ -124,6 +124,19 @@ it('updates a rule', function (): void {
         ->and($rule->threshold)->toBe(0.0);
 });
 
+it('turns warning reminders off, and keeps the setting when a save leaves it out', function (): void {
+    $rule = storedRule();
+
+    $this->put(route('ops.rules.update', ['rule' => $rule->id]), rulePayload(['remind_warnings' => false]))->assertSessionHasNoErrors();
+
+    expect($rule->refresh()->remind_warnings)->toBeFalse();
+
+    $this->put(route('ops.rules.update', ['rule' => $rule->id]), rulePayload())->assertSessionHasNoErrors();
+
+    expect($rule->refresh()->remind_warnings)->toBeFalse()
+        ->and($rule->toSpec()->remindWarnings)->toBeFalse();
+});
+
 it('mutes a rule for an hour, keeps the mute on a plain save, then clears it', function (): void {
     $rule = storedRule();
     $url = route('ops.rules.update', ['rule' => $rule->id]);

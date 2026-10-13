@@ -82,6 +82,7 @@ final class RuleRows
             'resolve_after_seconds' => $rule->resolve_after_seconds,
             'active' => $rule->active,
             'notify_on_resolve' => $rule->notify_on_resolve,
+            'remind_warnings' => $rule->remind_warnings ?? true,
             'is_muted' => $rule->muted_until !== null && $rule->muted_until->isAfter(CarbonImmutable::now()),
             'muted_until' => Format::date($rule->muted_until),
             'muted_until_iso' => $rule->muted_until?->toIso8601String(),

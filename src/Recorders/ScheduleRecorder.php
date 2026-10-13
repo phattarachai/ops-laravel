@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Phattarachai\OpsLaravel\Recorders;
 
+use Carbon\CarbonImmutable;
+use Cron\CronExpression;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Console\Events\ScheduledTaskSkipped;
 use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Console\Scheduling\Event;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Phattarachai\OpsLaravel\Enums\ScheduleRunStatus;
@@ -20,8 +23,9 @@ use Phattarachai\OpsLaravel\Support\OpsContext;
 use Throwable;
 
 /**
- * One ops_schedule_runs row per scheduled run, plus `skipped` rows when a filter said no. A
- * `->command()` task's child process adopts the parent's running row on CommandStarting.
+ * One ops_schedule_runs row per scheduled run, plus `skipped` rows when a filter said no or the
+ * app was in maintenance mode. A `->command()` task's child process adopts the parent's running
+ * row on CommandStarting.
  */
 class ScheduleRecorder
 {
@@ -79,11 +83,47 @@ class ScheduleRecorder
 
     public function commandStarting(CommandStarting $event): void
     {
+        if ($event->command === 'schedule:run') {
+            $this->recordMaintenanceSkips();
+        }
+
         $this->guard(function () use ($event): void {
             $run = $this->adoptableRun((string) $event->command);
 
             OpsContext::stampOrigin($run instanceof ScheduleRun ? OpsContext::SCHEDULE : OpsContext::CONSOLE, $run?->id);
         });
+    }
+
+    /**
+     * While the app is down, `schedule:run` drops every task not marked `evenInMaintenanceMode()`
+     * without firing any event, so its due tick would read as missed. Record it as skipped.
+     */
+    protected function recordMaintenanceSkips(): void
+    {
+        $this->guard(function (): void {
+            if (! app()->isDownForMaintenance()) {
+                return;
+            }
+
+            $now = CarbonImmutable::now();
+
+            collect(app(Schedule::class)->events())
+                ->filter(fn (Event $task): bool => ! $task->runsInMaintenanceMode() && $task->runsInEnvironment(app()->environment()) && self::isDue($task, $now))
+                ->each(fn (Event $task) => ScheduleRun::query()->create([
+                    'task' => self::taskName($task),
+                    'expression' => $task->getExpression(),
+                    'status' => ScheduleRunStatus::Skipped,
+                    'started_at' => $now,
+                ]));
+        });
+    }
+
+    /** Mirrors Event::expressionPasses(), which is protected. */
+    protected static function isDue(Event $task, CarbonImmutable $now): bool
+    {
+        $date = $task->timezone ? $now->setTimezone($task->timezone) : $now;
+
+        return (new CronExpression($task->getExpression()))->isDue($date->toDateTimeString());
     }
 
     protected function adoptableRun(string $command): ?ScheduleRun

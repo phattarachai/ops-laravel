@@ -183,6 +183,9 @@ export function RuleDialog({ rule, options, onClose }) {
                     <Checkbox checked={form.data.notify_on_resolve} onChange={(checked) => form.setData('notify_on_resolve', checked)}>
                         {t('Notify when resolved')}
                     </Checkbox>
+                    <Checkbox checked={form.data.remind_warnings} onChange={(checked) => form.setData('remind_warnings', checked)}>
+                        {t('Remind about warnings')}
+                    </Checkbox>
                 </div>
             </form>
         </Dialog>

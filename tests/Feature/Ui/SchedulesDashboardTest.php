@@ -7,11 +7,18 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia;
+use Phattarachai\OpsCore\Alerts\ProbeLevel;
 use Phattarachai\OpsLaravel\Enums\ScheduleRunStatus;
+use Phattarachai\OpsLaravel\Models\Deploy;
 use Phattarachai\OpsLaravel\Models\JobRun;
+use Phattarachai\OpsLaravel\Models\ProbeState;
 use Phattarachai\OpsLaravel\Models\ScheduleRun;
 use Phattarachai\OpsLaravel\Ops;
+use Phattarachai\OpsLaravel\Samplers\ScheduleHealthProbe;
 use Phattarachai\OpsLaravel\Ui\Format;
+use Phattarachai\OpsLaravel\Ui\OpsCache;
+use Phattarachai\OpsLaravel\Ui\Reports\Schedules\ScheduleBoard;
+use Phattarachai\OpsLaravel\Ui\TimeRange;
 
 beforeEach(function (): void {
     Ops::auth(fn (Request $request): bool => true);
@@ -19,11 +26,11 @@ beforeEach(function (): void {
     app(Schedule::class)->call(fn () => null)->description('ProbeHourly')->hourly();
 });
 
-function schedulesUiRun(string $at, ScheduleRunStatus $status, string $task = 'ProbeHourly', ?int $durationMs = 1000): ScheduleRun
+function schedulesUiRun(string $at, ScheduleRunStatus $status, string $task = 'ProbeHourly', ?int $durationMs = 1000, string $expression = '0 * * * *'): ScheduleRun
 {
     return ScheduleRun::query()->create([
         'task' => $task,
-        'expression' => '0 * * * *',
+        'expression' => $expression,
         'status' => $status,
         'started_at' => CarbonImmutable::parse($at),
         'duration_ms' => $durationMs,
@@ -78,12 +85,50 @@ it('counts each missing minute of an every-minute task and ignores the tick befo
     $this->travelTo(CarbonImmutable::parse('2026-09-29 12:00:30'));
 
     foreach (['11:40', '11:41', '11:42', '11:46', '11:47', '11:48', '11:49', '11:50', '11:51', '11:52', '11:53', '11:54', '11:55'] as $minute) {
-        schedulesUiRun("2026-09-29 {$minute}:02", ScheduleRunStatus::Success, task: 'ProbeMinute');
+        schedulesUiRun("2026-09-29 {$minute}:02", ScheduleRunStatus::Success, task: 'ProbeMinute', expression: '* * * * *');
     }
 
     $this->get(route('ops.schedules'))
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->where('tasks', fn ($tasks): bool => collect($tasks)->firstWhere('task', 'ProbeMinute')['missed'] === 3));
+});
+
+it('judges a changed schedule only from its first run on the new expression', function (): void {
+    app(Schedule::class)->call(fn () => null)->description('ProbeBackup')->dailyAt('03:30');
+    schedulesUiRun('2026-09-28 01:06:01', ScheduleRunStatus::Success, task: 'ProbeBackup', expression: '6 1 * * *');
+
+    $missed = fn (): ?int => collect(ScheduleBoard::tasks(TimeRange::fromPreset('24h')))->firstWhere('task', 'ProbeBackup')['missed'];
+
+    expect($missed())->toBeNull()
+        ->and(collect(ScheduleBoard::tasks(TimeRange::fromPreset('24h')))->firstWhere('task', 'ProbeBackup')['health'])->toBe('ok');
+
+    $this->travelTo(CarbonImmutable::parse('2026-09-30 12:30:00'));
+    schedulesUiRun('2026-09-29 03:30:02', ScheduleRunStatus::Success, task: 'ProbeBackup', expression: '30 3 * * *');
+    OpsCache::bust();
+
+    expect($missed())->toBe(1);
+});
+
+it('excuses ticks within the grace period of a deploy, for the board and the probe alike', function (): void {
+    app(Schedule::class)->call(fn () => null)->description('ProbeMinute')->everyMinute();
+    $this->travelTo(CarbonImmutable::parse('2026-09-29 12:00:30'));
+
+    foreach (['11:40', '11:41', '11:42', '11:43', '11:44', '11:46', '11:47', '11:48', '11:49', '11:50', '11:51', '11:52', '11:53', '11:54', '11:55'] as $minute) {
+        schedulesUiRun("2026-09-29 {$minute}:02", ScheduleRunStatus::Success, task: 'ProbeMinute', expression: '* * * * *');
+    }
+
+    $row = fn (): array => collect(ScheduleBoard::tasks(TimeRange::fromPreset('24h')))->firstWhere('task', 'ProbeMinute');
+
+    expect($row()['missed'])->toBe(1);
+
+    Deploy::query()->create(['release' => 'abc123', 'deployed_at' => CarbonImmutable::parse('2026-09-29 11:49:40')]);
+    OpsCache::bust();
+
+    expect($row())->missed->toBe(0)->health->toBe('ok');
+
+    app(ScheduleHealthProbe::class)->publish();
+
+    expect(ProbeState::query()->where('key', 'ProbeMinute')->sole())->level->toBe(ProbeLevel::Ok);
 });
 
 it('reads failing from the last run and lists the jobs each run dispatched', function (): void {

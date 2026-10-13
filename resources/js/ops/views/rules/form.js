@@ -28,6 +28,7 @@ export function blankDraft() {
         resolve_after_minutes: '5',
         active: true,
         notify_on_resolve: true,
+        remind_warnings: true,
     }
 }
 
@@ -51,6 +52,7 @@ export function toDraft(rule) {
         resolve_after_minutes: minutes(rule.resolve_after_seconds),
         active: rule.active,
         notify_on_resolve: rule.notify_on_resolve,
+        remind_warnings: rule.remind_warnings ?? true,
     }
 }
 
@@ -73,6 +75,7 @@ export function toPayload(draft) {
         resolve_after_seconds: seconds(draft.resolve_after_minutes) ?? 0,
         active: draft.active,
         notify_on_resolve: draft.notify_on_resolve,
+        remind_warnings: draft.remind_warnings,
     }
 }
 

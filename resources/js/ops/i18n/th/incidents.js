@@ -87,6 +87,7 @@ export default {
     'Remind every (min)': 'เตือนซ้ำทุก (นาที)',
     'Resolve after quiet (min)': 'ปิดเมื่อเงียบ (นาที)',
     'Notify when resolved': 'แจ้งเมื่อปิด incident',
+    'Remind about warnings': 'เตือนซ้ำระดับ “เตือน” ด้วย',
     Cancel: 'ยกเลิก',
     Save: 'บันทึก',
 

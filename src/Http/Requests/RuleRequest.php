@@ -52,12 +52,13 @@ final class RuleRequest extends FormRequest
             'resolve_after_seconds' => ['required', 'integer', 'min:0', 'max:'.self::MAX_WINDOW_SECONDS],
             'active' => ['required', 'boolean'],
             'notify_on_resolve' => ['required', 'boolean'],
+            'remind_warnings' => ['sometimes', 'boolean'],
             'mute' => ['nullable', ValidationRule::in([...array_keys(self::MUTES), 'clear'])],
         ];
     }
 
     /**
-     * @return array{name: string, type: RuleType, signal: string, severity: Severity, threshold: float, window_seconds: int, distinct_field: ?string, denominator_signal: ?string, min_samples: int, min_level: ProbeLevel, keys: list<string>, environments: list<string>, channels: list<string>, cooldown_seconds: int, resolve_after_seconds: int, active: bool, notify_on_resolve: bool}
+     * @return array{name: string, type: RuleType, signal: string, severity: Severity, threshold: float, window_seconds: int, distinct_field: ?string, denominator_signal: ?string, min_samples: int, min_level: ProbeLevel, keys: list<string>, environments: list<string>, channels: list<string>, cooldown_seconds: int, resolve_after_seconds: int, active: bool, notify_on_resolve: bool, remind_warnings?: bool}
      */
     public function attributesForRule(): array
     {
@@ -81,6 +82,7 @@ final class RuleRequest extends FormRequest
             'resolve_after_seconds' => (int) $this->validated('resolve_after_seconds'),
             'active' => $this->boolean('active'),
             'notify_on_resolve' => $this->boolean('notify_on_resolve'),
+            ...$this->remindWarnings(),
         ];
     }
 
@@ -100,6 +102,16 @@ final class RuleRequest extends FormRequest
             $mute === 'clear' => null,
             default => CarbonImmutable::now()->addMinutes(self::MUTES[$mute]),
         };
+    }
+
+    /**
+     * Left out when the form didn't send it, so an older bundle saving a rule keeps the stored value.
+     *
+     * @return array{remind_warnings?: bool}
+     */
+    private function remindWarnings(): array
+    {
+        return $this->has('remind_warnings') ? ['remind_warnings' => $this->boolean('remind_warnings')] : [];
     }
 
     /** @return list<string> */
