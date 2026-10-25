@@ -28,3 +28,12 @@ it('registers the rollup and prune commands on the scheduler', function () {
 
     expect($commands)->toContain('ops:rollup')->toContain('ops:prune');
 });
+
+it('gives the scheduled commands short mutex expiries so a failed release cannot skip them for a day', function () {
+    $expiries = collect(app(Schedule::class)->events())
+        ->mapWithKeys(fn ($event) => [trim(strstr($event->command, 'ops:')) => [$event->withoutOverlapping, $event->expiresAt]]);
+
+    expect($expiries->get('ops:rollup'))->toBe([true, 10])
+        ->and($expiries->get('ops:alerts'))->toBe([true, 10])
+        ->and($expiries->get('ops:prune'))->toBe([true, 120]);
+});

@@ -175,9 +175,11 @@ final class OpsServiceProvider extends ServiceProvider
                 return;
             }
 
-            $schedule->command('ops:rollup')->everyMinute()->withoutOverlapping();
-            $schedule->command('ops:alerts')->everyMinute()->withoutOverlapping();
-            $schedule->command('ops:prune')->dailyAt('03:10')->withoutOverlapping();
+            // Short mutex expiries: if the cache refuses the release (Redis MISCONF, full disk),
+            // the default 24 h would skip the task for a day.
+            $schedule->command('ops:rollup')->everyMinute()->withoutOverlapping(10);
+            $schedule->command('ops:alerts')->everyMinute()->withoutOverlapping(10);
+            $schedule->command('ops:prune')->dailyAt('03:10')->withoutOverlapping(120);
         });
     }
 }
