@@ -16,6 +16,9 @@ final class OpsCache
 
     public const int STALE_SECONDS = 300;
 
+    /** The refresh lock expires on its own, so a failed release can't block refreshes forever. */
+    public const int LOCK_SECONDS = 60;
+
     private const string VERSION_KEY = 'ops:ui:cache-version';
 
     /**
@@ -26,7 +29,7 @@ final class OpsCache
      */
     public static function remember(string $key, callable $callback): mixed
     {
-        return Cache::flexible(self::key($key), [self::FRESH_SECONDS, self::STALE_SECONDS], $callback);
+        return Cache::flexible(self::key($key), [self::FRESH_SECONDS, self::STALE_SECONDS], $callback, self::lock());
     }
 
     /**
@@ -37,7 +40,7 @@ final class OpsCache
      */
     public static function rememberClosedDays(string $key, callable $callback): mixed
     {
-        return Cache::flexible("ops:ui:closed:{$key}:".today()->toDateString(), [3600, 7200], $callback);
+        return Cache::flexible("ops:ui:closed:{$key}:".today()->toDateString(), [3600, 7200], $callback, self::lock());
     }
 
     public static function version(): int
@@ -48,6 +51,12 @@ final class OpsCache
     public static function bust(): void
     {
         Cache::forever(self::VERSION_KEY, self::version() + 1);
+    }
+
+    /** @return array{seconds: int} */
+    private static function lock(): array
+    {
+        return ['seconds' => self::LOCK_SECONDS];
     }
 
     private static function key(string $key): string
