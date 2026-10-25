@@ -207,7 +207,7 @@ class RequestStreamRollup extends StreamRollup
 
     /**
      * @param  array{bucket: CarbonImmutable, route: string, method: string, status: int, segment: string, requests: int, sum_ms: int, max_ms: int, histogram: list<int>}  $group
-     * @return array<string, mixed>
+     * @return array<model-property<RequestRollup>, mixed>
      */
     protected function row(string $grain, array $group): array
     {

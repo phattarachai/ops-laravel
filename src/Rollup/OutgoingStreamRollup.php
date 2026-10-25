@@ -75,7 +75,7 @@ class OutgoingStreamRollup extends StreamRollup
 
     /**
      * @param  array{bucket: CarbonImmutable, endpoint: string, method: string, status: int, outcome: string, calls: int, timed: int, sum_ms: int, max_ms: int, histogram: list<int>}  $group
-     * @return array<string, mixed>
+     * @return array<model-property<OutgoingRollup>, mixed>
      */
     protected function row(string $grain, array $group): array
     {
