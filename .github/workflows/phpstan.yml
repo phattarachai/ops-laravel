@@ -25,11 +25,6 @@ jobs:
           php-version: '8.4'
           coverage: none
 
-      - name: Resolve ops-core from Packagist
-        # composer.json carries a path repository to a sibling ../ops-core checkout for local
-        # development. CI has no sibling, so drop it and let Packagist resolve the release.
-        run: composer config --unset repositories.ops-core
-
       - name: Install dependencies
         run: |
           # A fix for an advisory can still be in cooldown, leaving nothing installable: retry past the cooldown only then.
