@@ -120,15 +120,6 @@ over the `config/ops.php` default of the same key.
 
 ## Development
 
-`composer.json` points `phattarachai/ops-core` at a sibling checkout through a path repository (symlinked), so core and
-this package can change together:
-
-```
-~/www/packages/
-├── ops-core/
-└── ops-laravel/
-```
-
 ```bash
 composer install
 vendor/bin/pest              # composer test
@@ -136,8 +127,15 @@ vendor/bin/pint              # composer format
 vendor/bin/phpstan analyse   # composer analyse — larastan level 5, baselined
 ```
 
-CI drops that path repository (`composer config --unset repositories.ops-core`) and resolves `phattarachai/ops-core`
-from Packagist instead, so **CI stays red until ops-core is published** on GitHub and Packagist with a `v0.1.x` tag.
+`phattarachai/ops-core` resolves from Packagist. To change core and this package together, point it at a sibling
+checkout for that work, and don't commit the change: a committed path repository breaks Dependabot, which has no sibling.
+
+```bash
+composer config repositories.ops-core '{"type": "path", "url": "../ops-core", "options": {"symlink": true, "versions": {"phattarachai/ops-core": "0.1.1"}}}'
+composer update phattarachai/ops-core
+```
+
+Set `versions` to the version the constraint in `composer.json` needs.
 
 ## License
 

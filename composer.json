@@ -34,18 +34,6 @@
         "inertiajs/inertia-laravel": "^2.0|^3.0",
         "phattarachai/ops-core": "^0.1.1"
     },
-    "repositories": {
-        "ops-core": {
-            "type": "path",
-            "url": "../ops-core",
-            "options": {
-                "symlink": true,
-                "versions": {
-                    "phattarachai/ops-core": "0.1.1"
-                }
-            }
-        }
-    },
     "require-dev": {
         "larastan/larastan": "^3.10",
         "laravel/pint": "^1.24",

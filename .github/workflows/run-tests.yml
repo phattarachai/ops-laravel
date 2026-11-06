@@ -38,11 +38,6 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, fileinfo
           coverage: none
 
-      - name: Resolve ops-core from Packagist
-        # composer.json carries a path repository to a sibling ../ops-core checkout for local
-        # development. CI has no sibling, so drop it and let Packagist resolve the release.
-        run: composer config --unset repositories.ops-core
-
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
