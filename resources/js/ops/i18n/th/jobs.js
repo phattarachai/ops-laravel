@@ -40,6 +40,7 @@ export default {
     'Last run': 'ล่าสุด',
     'Last run :when': 'รันล่าสุด :when',
     'Latest runs': 'Runs ล่าสุด',
+    Links: 'ลิงก์',
     List: 'รายการ',
     'No data': 'ไม่มีข้อมูล',
     'No failures in 7 days': 'ไม่มี failure ใน 7 วัน',

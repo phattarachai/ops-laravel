@@ -203,7 +203,7 @@ final class JobDetail
     /**
      * The latest runs regardless of the window.
      *
-     * @return list<array{at: string, at_iso: string, status: string, duration: string, seconds: ?float, wait: string, wait_seconds: ?float, origin: ?string, queue: ?string, attempts: int, domain: ?string, error: ?string}>
+     * @return list<array{uuid: ?string, at: string, at_iso: string, status: string, duration: string, seconds: ?float, wait: string, wait_seconds: ?float, origin: ?string, queue: ?string, attempts: int, domain: ?string, error: ?string}>
      */
     public static function recentRuns(string $jobClass): array
     {
@@ -213,21 +213,42 @@ final class JobDetail
             ->latest('id')
             ->limit(self::RECENT_RUNS)
             ->get()
-            ->map(fn (JobRun $run): array => [
-                'at' => (string) Format::date($run->started_at, 'j M H:i:s'),
-                'at_iso' => $run->started_at->toIso8601String(),
-                'status' => $run->status->value,
-                'duration' => Format::duration($run->duration_ms === null ? null : $run->duration_ms / 1000),
-                'seconds' => $run->duration_ms === null ? null : round($run->duration_ms / 1000, 3),
-                'wait' => Format::duration($run->wait_ms === null ? null : $run->wait_ms / 1000),
-                'wait_seconds' => $run->wait_ms === null ? null : round($run->wait_ms / 1000, 3),
-                'origin' => $run->origin,
-                'queue' => $run->queue,
-                'attempts' => $run->attempts,
-                'domain' => $run->domain_id === null ? null : class_basename((string) $run->domain_type).' #'.$run->domain_id,
-                'error' => $run->exception_class === null ? null : class_basename($run->exception_class).': '.Str::limit((string) $run->exception_message, 160),
-            ])
+            ->map(self::runRow(...))
             ->all());
+    }
+
+    /**
+     * One run, when the host asks for it by uuid (a link back from its own logs) and it is older than the latest runs.
+     *
+     * @return array{uuid: ?string, at: string, at_iso: string, status: string, duration: string, seconds: ?float, wait: string, wait_seconds: ?float, origin: ?string, queue: ?string, attempts: int, domain: ?string, error: ?string}|null
+     */
+    public static function run(string $jobClass, string $uuid): ?array
+    {
+        $run = JobRun::query()->where('job_class', $jobClass)->where('uuid', $uuid)->latest('started_at')->first();
+
+        return $run === null ? null : self::runRow($run);
+    }
+
+    /**
+     * @return array{uuid: ?string, at: string, at_iso: string, status: string, duration: string, seconds: ?float, wait: string, wait_seconds: ?float, origin: ?string, queue: ?string, attempts: int, domain: ?string, error: ?string}
+     */
+    private static function runRow(JobRun $run): array
+    {
+        return [
+            'uuid' => $run->uuid,
+            'at' => (string) Format::date($run->started_at, 'j M H:i:s'),
+            'at_iso' => $run->started_at->toIso8601String(),
+            'status' => $run->status->value,
+            'duration' => Format::duration($run->duration_ms === null ? null : $run->duration_ms / 1000),
+            'seconds' => $run->duration_ms === null ? null : round($run->duration_ms / 1000, 3),
+            'wait' => Format::duration($run->wait_ms === null ? null : $run->wait_ms / 1000),
+            'wait_seconds' => $run->wait_ms === null ? null : round($run->wait_ms / 1000, 3),
+            'origin' => $run->origin,
+            'queue' => $run->queue,
+            'attempts' => $run->attempts,
+            'domain' => $run->domain_id === null ? null : class_basename((string) $run->domain_type).' #'.$run->domain_id,
+            'error' => $run->exception_class === null ? null : class_basename($run->exception_class).': '.Str::limit((string) $run->exception_message, 160),
+        ];
     }
 
     /**

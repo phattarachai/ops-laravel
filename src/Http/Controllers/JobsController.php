@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Response;
 use Phattarachai\OpsLaravel\Models\JobRun;
+use Phattarachai\OpsLaravel\Ops;
 use Phattarachai\OpsLaravel\Ui\Reports\Jobs\Days;
 use Phattarachai\OpsLaravel\Ui\Reports\Jobs\JobBoard;
 use Phattarachai\OpsLaravel\Ui\Reports\Jobs\JobDetail;
@@ -52,6 +53,7 @@ final class JobsController
         $summary = JobBoard::row($jobClass, $range);
         $origins = JobDetail::origins($jobClass, $range);
         $latest = JobRun::query()->where('job_class', $jobClass)->max('started_at');
+        $highlight = is_string($request->query('run')) && $request->query('run') !== '' ? $request->query('run') : null;
 
         return UiPage::render('jobs.show', [
             'time_filter' => $filter->toProps($latest === null ? null : CarbonImmutable::parse((string) $latest)),
@@ -66,10 +68,29 @@ final class JobsController
             'hours' => JobDetail::hourOfDay($jobClass),
             'histogram' => JobDetail::histogram($jobClass, $range),
             'incidents' => JobDetail::incidents($jobClass),
-            'runs' => JobDetail::recentRuns($jobClass),
+            'runs' => $this->runs($jobClass, $highlight),
+            'highlight_run' => $highlight,
             'history' => JobTimeline::history()[$jobClass] ?? JobTimeline::idle(),
             'dates' => Days::history(),
         ]);
+    }
+
+    /**
+     * The latest runs, plus the highlighted one when it is older than those, each with the host's links.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function runs(string $jobClass, ?string $highlight): array
+    {
+        $runs = JobDetail::recentRuns($jobClass);
+
+        if ($highlight !== null && ! in_array($highlight, array_column($runs, 'uuid'), true)) {
+            $runs = [...$runs, ...array_filter([JobDetail::run($jobClass, $highlight)])];
+        }
+
+        $links = Ops::jobRunLinks(array_values(array_unique(array_filter(array_column($runs, 'uuid')))));
+
+        return array_map(fn (array $run): array => [...$run, 'links' => $links[$run['uuid'] ?? ''] ?? []], $runs);
     }
 
     /**

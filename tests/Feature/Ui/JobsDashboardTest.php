@@ -204,6 +204,48 @@ it('shows a job class with origins, sweeps, charts, recent runs and incidents', 
             ->has('history', 14));
 });
 
+it('adds the host links to each run in one call and highlights a run asked for by uuid', function (): void {
+    $recent = jobsUiRun();
+    $retried = jobsUiRun(status: 'released', at: CarbonImmutable::now()->subMinutes(30));
+    jobsUiRun(at: CarbonImmutable::now()->subMinutes(20), attributes: ['uuid' => $retried->uuid, 'attempts' => 2]);
+    $old = jobsUiRun(at: CarbonImmutable::now()->subDays(3));
+    collect(range(1, 30))->each(fn (int $minute) => jobsUiRun(at: CarbonImmutable::now()->subMinutes($minute)));
+    $calls = [];
+    Ops::jobRunLinksUsing(function (array $uuids) use (&$calls, $recent, $old): array {
+        $calls[] = $uuids;
+
+        return [
+            $recent->uuid => [['label' => 'Log 2', 'url' => 'https://host.test/log?job='.$recent->uuid]],
+            $old->uuid => [['label' => 'Log 1', 'url' => 'https://host.test/log?job='.$old->uuid]],
+        ];
+    });
+
+    $this->get(route('ops.jobs.show', ['token' => Format::base64url(JOBS_UI_FOO), 'run' => $old->uuid]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('highlight_run', $old->uuid)
+            ->has('runs', 31)
+            ->where('runs.30.uuid', $old->uuid)
+            ->where('runs.30.links', [['label' => 'Log 1', 'url' => 'https://host.test/log?job='.$old->uuid]])
+            ->where('runs.0.links', []));
+
+    expect($calls)->toHaveCount(1)
+        ->and($calls[0])->toHaveCount(31)
+        ->and($calls[0])->toContain($old->uuid);
+
+    $this->get(route('ops.jobs.show', ['token' => Format::base64url(JOBS_UI_FOO), 'run' => 'not-a-run']))
+        ->assertInertia(fn (AssertableInertia $page) => $page->has('runs', 30));
+});
+
+it('leaves the runs without links when the host hook throws', function (): void {
+    jobsUiRun();
+    Ops::jobRunLinksUsing(fn (array $uuids): array => throw new RuntimeException('host down'));
+
+    $this->get(route('ops.jobs.show', ['token' => Format::base64url(JOBS_UI_FOO)]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('runs.0.links', [])->where('highlight_run', null));
+});
+
 it('answers 404 for a token of a class never recorded', function (): void {
     jobsUiRun();
 
