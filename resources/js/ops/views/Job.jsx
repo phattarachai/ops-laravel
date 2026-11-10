@@ -51,10 +51,14 @@ function runColumns(runs) {
         { key: 'queue', label: 'Queue', className: 'text-zinc-500' },
     ]
 
+    const [started, status, ...rest] = columns
+
     return [
-        ...columns,
-        runs.some((run) => run.domain) && { key: 'domain', label: 'Domain', sortable: true, className: 'text-zinc-500' },
+        started,
+        status,
         runs.some((run) => run.links?.length > 0) && { key: 'links', label: t('Links'), render: (run) => <RunLinks links={run.links} /> },
+        ...rest,
+        runs.some((run) => run.domain) && { key: 'domain', label: 'Domain', sortable: true, className: 'text-zinc-500' },
     ].filter(Boolean)
 }
 
