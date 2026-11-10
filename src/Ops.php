@@ -40,6 +40,9 @@ final class Ops
     /** @var list<Closure(TimeRange): list<array<string, mixed>>> */
     private static array $overviewBlocks = [];
 
+    /** @var (Closure(list<string>): array<string, list<array{label: string, url: string}>>)|null */
+    private static ?Closure $jobRunLinksUsing = null;
+
     private static bool $paused = false;
 
     /** @var list<array{label: string, url: string, icon: string, group: string|null, active: bool, external: bool}> */
@@ -135,6 +138,30 @@ final class Ops
         return self::$overviewBlocks;
     }
 
+    /**
+     * Links shown per run in a job's "Latest runs" table, e.g. to the host's own log of what the run did. Given the
+     * uuids of the runs on screen in one call, so the host can answer with one query; returns uuid => links.
+     *
+     * @param  Closure(list<string>): array<string, list<array{label: string, url: string}>>  $callback
+     */
+    public static function jobRunLinksUsing(Closure $callback): void
+    {
+        self::$jobRunLinksUsing = $callback;
+    }
+
+    /**
+     * @param  list<string>  $uuids
+     * @return array<string, list<array{label: string, url: string}>>
+     */
+    public static function jobRunLinks(array $uuids): array
+    {
+        if ($uuids === [] || ! self::$jobRunLinksUsing instanceof Closure) {
+            return [];
+        }
+
+        return (array) rescue(fn (): array => call_user_func(self::$jobRunLinksUsing, $uuids), []);
+    }
+
     /** @param  array<string, scalar|null>  $meta */
     public static function signal(string $signal, string $key = '', array $meta = [], int $count = 1): void
     {
@@ -209,6 +236,7 @@ final class Ops
         self::$navLinks = [];
         self::$usersUsing = null;
         self::$overviewBlocks = [];
+        self::$jobRunLinksUsing = null;
     }
 
     /**

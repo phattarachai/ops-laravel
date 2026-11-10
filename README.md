@@ -111,9 +111,14 @@ Ops::segmentUsing(fn (User $user) => $user->role->value);          // the "segme
 Ops::outgoingEndpointUsing(fn ($request) => 'vendor.orders');       // name outgoing calls (default: host)
 Ops::resolveUsersUsing(fn (array $ids) => [...]);                   // id => ['name' => …, 'detail' => …, 'url' => …]
 Ops::overviewBlocks(fn (TimeRange $range) => [...]);                // extra Overview status blocks
+Ops::jobRunLinksUsing(fn (array $uuids) => [...]);                  // run uuid => [['label' => …, 'url' => …]] in a job's Latest runs
 Ops::navLinks([['label' => 'Horizon', 'url' => url('horizon')]]);   // extra sidebar links
 Ops::withoutRecording(fn () => ...);                                // skip telemetry for a block
 ```
+
+`jobRunLinksUsing` is called once per job page with the uuids of the runs on screen, so answer with one grouped query.
+A job page opened with `?run=<uuid>` highlights that run (all its attempts), adding it to the table when it is older than
+the latest 30 — link back to it from your own logs.
 
 Runtime settings (recorders on/off, ignore lists, retention, channels) are stored in `ops_settings`; a stored value wins
 over the `config/ops.php` default of the same key.

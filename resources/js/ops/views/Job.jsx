@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react'
 import { ArrowLeft } from 'lucide-react'
+import { useEffect } from 'react'
 
 import { Histogram } from '../charts/chart/Histogram'
 import { HourOfDay } from '../charts/chart/HourOfDay'
@@ -50,7 +51,37 @@ function runColumns(runs) {
         { key: 'queue', label: 'Queue', className: 'text-zinc-500' },
     ]
 
-    return runs.some((run) => run.domain) ? [...columns, { key: 'domain', label: 'Domain', sortable: true, className: 'text-zinc-500' }] : columns
+    const [started, status, ...rest] = columns
+
+    return [
+        started,
+        status,
+        runs.some((run) => run.links?.length > 0) && { key: 'links', label: t('Links'), render: (run) => <RunLinks links={run.links} /> },
+        ...rest,
+        runs.some((run) => run.domain) && { key: 'domain', label: 'Domain', sortable: true, className: 'text-zinc-500' },
+    ].filter(Boolean)
+}
+
+function RunLinks({ links = [] }) {
+    return (
+        <span className="inline-flex gap-2">
+            {links.map((link) => (
+                <a key={link.url} href={link.url} className="text-ops-accent-600 hover:underline">
+                    {link.label}
+                </a>
+            ))}
+        </span>
+    )
+}
+
+const HIGHLIGHT_CLASS = 'ops-run-highlight'
+
+function useScrollToHighlight(highlight) {
+    useEffect(() => {
+        if (highlight) {
+            document.querySelector(`.${HIGHLIGHT_CLASS}`)?.scrollIntoView({ block: 'center' })
+        }
+    }, [highlight])
 }
 
 function originColumns() {
@@ -194,7 +225,9 @@ function Breakdown({ origins, sweeps, windowLabel }) {
     )
 }
 
-export default function Job({ job, summary, queues, origins, sweeps, buckets, ceiling, hours, histogram, incidents, runs, history, dates, time_filter, index_url }) {
+export default function Job({ job, summary, queues, origins, sweeps, buckets, ceiling, hours, histogram, incidents, runs, highlight_run, history, dates, time_filter, index_url }) {
+    useScrollToHighlight(highlight_run)
+
     return (
         <OpsPage title={job.job} toolbar={<TimeFilter />}>
             <div className="space-y-3">
@@ -215,7 +248,14 @@ export default function Job({ job, summary, queues, origins, sweeps, buckets, ce
 
                 <div className="grid items-start gap-3 xl:grid-cols-3">
                     <Section title={t('Latest runs')} tooltip={t('The last 30 runs, whatever the window · hover a failed status for the error')} flush>
-                        <DataTable columns={runColumns(runs)} rows={runs} rowKey={(run, index) => `${run.at_iso}-${index}`} empty={t('No runs yet')} flush />
+                        <DataTable
+                            columns={runColumns(runs)}
+                            rows={runs}
+                            rowKey={(run, index) => `${run.at_iso}-${index}`}
+                            rowClassName={(run) => highlight_run && run.uuid === highlight_run && cn(HIGHLIGHT_CLASS, 'bg-amber-50 hover:bg-amber-100')}
+                            empty={t('No runs yet')}
+                            flush
+                        />
                     </Section>
                     <Section title="Incidents" hint={t(':count days', { count: 7 })} tooltip={t('Failures of the last 7 days, folded into incidents')} flush className="xl:col-span-2">
                         <Incidents incidents={incidents} empty={t('No failures in 7 days')} showDomains={incidents.some((incident) => incident.domains.length > 0)} />
